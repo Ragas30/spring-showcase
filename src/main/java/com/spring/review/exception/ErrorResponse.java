@@ -1,4 +1,4 @@
-package com.spring.review.execption;
+package com.spring.review.exception;
 
 import lombok.*;
 
