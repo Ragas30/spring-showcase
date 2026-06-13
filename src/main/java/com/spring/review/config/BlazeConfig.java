@@ -7,6 +7,7 @@ import com.blazebit.persistence.view.EntityViewManager;
 import com.blazebit.persistence.view.EntityViews;
 import com.blazebit.persistence.view.spi.EntityViewConfiguration;
 import com.spring.review.entityView.AuthUserView;
+import com.spring.review.entityView.EmployeeView;
 import com.spring.review.entityView.UserView;
 import jakarta.persistence.EntityManagerFactory;
 import org.springframework.context.annotation.Bean;
@@ -38,6 +39,7 @@ public class BlazeConfig {
 
         config.addEntityView(UserView.class);
         config.addEntityView(AuthUserView.class);
+        config.addEntityView(EmployeeView.class);
 
         return config.createEntityViewManager(cbf);
     }

@@ -10,6 +10,9 @@ public enum ErrorCode {
     INVALID_USERNAME_OR_PASSWORD,
 
     UNAUTHORIZED,
-    FORBIDDEN
+    FORBIDDEN,
+
+    BAD_REQUEST,
+    NOT_FOUND,
 }
 
