@@ -1,16 +1,18 @@
 package com.spring.review.controller;
 
 import com.spring.review.bean.employee.CreateEmployeeRequest;
+import com.spring.review.bean.employee.EmployeeSearchRequest;
 import com.spring.review.bean.employee.UpdateEmployeeRequest;
 import com.spring.review.common.ApiResponse;
 import com.spring.review.common.ErrorCode;
+import com.spring.review.common.PageResponse;
+import com.spring.review.common.PageSpec;
 import com.spring.review.entityView.EmployeeView;
 import com.spring.review.service.EmployeeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/employees")
@@ -43,14 +45,19 @@ public class EmployeeController {
      * Get All Employees
      */
     @GetMapping
-    public ApiResponse<List<EmployeeView>> getEmployees() {
+    public ApiResponse<PageResponse<EmployeeView>> getEmployees(
+            @Valid
+            @ParameterObject
+            @ModelAttribute
+            EmployeeSearchRequest request
+    ) {
 
         return ApiResponse
-                .<List<EmployeeView>>builder()
+                .<PageResponse<EmployeeView>>builder()
                 .code(ErrorCode.SUCCESS.name())
                 .message("Employees retrieved successfully")
                 .data(
-                        employeeService.getEmployees()
+                        employeeService.getEmployees(request)
                 )
                 .build();
     }

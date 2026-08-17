@@ -5,11 +5,13 @@ import com.blazebit.persistence.CriteriaBuilderFactory;
 import com.blazebit.persistence.view.EntityViewManager;
 import com.spring.review.bean.auth.LoginRequest;
 import com.spring.review.bean.auth.LoginResponse;
+import com.spring.review.bean.auth.RefreshTokenRequest;
 import com.spring.review.common.ErrorCode;
 import com.spring.review.entity.UserEntity;
 import com.spring.review.entityView.AuthUserView;
 import com.spring.review.exception.BusinessException;
 import jakarta.persistence.EntityManager;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -57,6 +59,13 @@ public class UserAuthService {
             );
         }
 
+        if (Boolean.FALSE.equals(user.getIsActive())) {
+            throw new BusinessException(
+                    ErrorCode.FORBIDDEN,
+                    "Akun sudah tidak aktif"
+            );
+        }
+
         boolean passwordValid =
                 passwordEncoder.matches(
                         request.getPassword(),
@@ -70,14 +79,160 @@ public class UserAuthService {
             );
         }
 
-        String token =
+        String accessToken =
                 jwtService.generateToken(
-                        user.getUsername()
+                        user.getUsername(),
+                        user.getRole()
+                );
+
+        String refreshToken =
+                jwtService.generateRefreshToken(
+                        user.getUsername(),
+                        user.getRole()
                 );
 
         return LoginResponse.builder()
-                .accessToken(token)
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
                 .tokenType("Bearer")
+                .role(user.getRole())
                 .build();
+    }
+
+    public LoginResponse refreshToken(
+            RefreshTokenRequest request
+    ) {
+
+        String refreshToken =
+                request.getRefreshToken();
+
+        String username;
+
+        try {
+            username =
+                    jwtService.extractUsername(
+                            refreshToken
+                    );
+        } catch (Exception e) {
+            throw new BusinessException(
+                    ErrorCode.INVALID_TOKEN,
+                    "Refresh token tidak valid"
+            );
+        }
+
+        if (username == null) {
+            throw new BusinessException(
+                    ErrorCode.INVALID_TOKEN,
+                    "Refresh token tidak valid"
+            );
+        }
+
+        if (!jwtService.isTokenValid(
+                refreshToken,
+                username
+        )) {
+            throw new BusinessException(
+                    ErrorCode.TOKEN_EXPIRED,
+                    "Refresh token sudah expired"
+            );
+        }
+
+        if (!jwtService.isRefreshToken(refreshToken)) {
+            throw new BusinessException(
+                    ErrorCode.INVALID_TOKEN,
+                    "Token bukan refresh token"
+            );
+        }
+
+        CriteriaBuilder<UserEntity> cb =
+                cbf.create(
+                        entityManager,
+                        UserEntity.class
+                );
+
+        cb.where("username")
+                .eq(username);
+
+        AuthUserView user =
+                evm.applySetting(
+                                com.blazebit.persistence.view
+                                        .EntityViewSetting
+                                        .create(AuthUserView.class),
+                                cb
+                        )
+                        .getSingleResultOrNull();
+
+        if (user == null) {
+            throw new BusinessException(
+                    ErrorCode.USER_NOT_FOUND,
+                    "User tidak ditemukan"
+            );
+        }
+
+        String newAccessToken =
+                jwtService.generateToken(
+                        user.getUsername(),
+                        user.getRole()
+                );
+
+        String newRefreshToken =
+                jwtService.generateRefreshToken(
+                        user.getUsername(),
+                        user.getRole()
+                );
+
+        return LoginResponse.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(newRefreshToken)
+                .tokenType("Bearer")
+                .role(user.getRole())
+                .build();
+    }
+
+    @Transactional
+    public boolean userExists(
+            String username
+    ) {
+
+        Long count = cbf.create(
+                        entityManager,
+                        Long.class
+                )
+                .from(UserEntity.class)
+                .select("COUNT(id)")
+                .where("username")
+                .eq(username)
+                .getSingleResult();
+
+        return count > 0;
+    }
+
+    public String getUserRole(
+            String username
+    ) {
+
+        CriteriaBuilder<UserEntity> cb =
+                cbf.create(
+                        entityManager,
+                        UserEntity.class
+                );
+
+        cb.where("username")
+                .eq(username);
+
+        AuthUserView user =
+                evm.applySetting(
+                                com.blazebit.persistence.view
+                                        .EntityViewSetting
+                                        .create(AuthUserView.class),
+                                cb
+                        )
+                        .getSingleResultOrNull();
+
+        if (user != null) {
+            return user.getRole();
+        }
+
+        return null;
     }
 }

@@ -14,4 +14,6 @@ public interface AuthUserView {
 
     String getRole();
 
+    Boolean getIsActive();
+
 }

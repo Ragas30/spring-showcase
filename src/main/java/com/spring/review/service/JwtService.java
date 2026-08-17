@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class JwtService {
@@ -20,6 +22,9 @@ public class JwtService {
     @Value("${jwt.expiration}")
     private Long expiration;
 
+    @Value("${jwt.refresh-expiration:604800000}")
+    private Long refreshExpiration;
+
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(
                 secret.getBytes(StandardCharsets.UTF_8)
@@ -27,16 +32,47 @@ public class JwtService {
     }
 
     public String generateToken(
-            String username
+            String username,
+            String role
     ) {
 
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("role", role);
+
         return Jwts.builder()
+                .setClaims(claims)
                 .setSubject(username)
                 .setIssuedAt(new Date())
                 .setExpiration(
                         new Date(
                                 System.currentTimeMillis()
                                         + expiration
+                        )
+                )
+                .signWith(
+                        getSigningKey(),
+                        SignatureAlgorithm.HS256
+                )
+                .compact();
+    }
+
+    public String generateRefreshToken(
+            String username,
+            String role
+    ) {
+
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("role", role);
+        claims.put("type", "refresh");
+
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(username)
+                .setIssuedAt(new Date())
+                .setExpiration(
+                        new Date(
+                                System.currentTimeMillis()
+                                        + refreshExpiration
                         )
                 )
                 .signWith(
@@ -54,6 +90,22 @@ public class JwtService {
                 .getSubject();
     }
 
+    public String extractRole(
+            String token
+    ) {
+
+        return extractClaims(token)
+                .get("role", String.class);
+    }
+
+    public String extractTokenType(
+            String token
+    ) {
+
+        return extractClaims(token)
+                .get("type", String.class);
+    }
+
     public boolean isTokenValid(
             String token,
             String username
@@ -64,6 +116,15 @@ public class JwtService {
 
         return tokenUsername.equals(username)
                 && !isTokenExpired(token);
+    }
+
+    public boolean isRefreshToken(
+            String token
+    ) {
+
+        return "refresh".equals(
+                extractTokenType(token)
+        );
     }
 
     private boolean isTokenExpired(

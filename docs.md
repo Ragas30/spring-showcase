@@ -514,22 +514,39 @@ Fitur:
 * Validation
 * Entity View
 * Global Exception Handling
+* RESIGNED status
+
+---
+
+## Auth Enhancements
+
+Status:
+
+```text
+DONE
+```
+
+Fitur:
+
+* Refresh Token
+* Role-based Authorities (RBAC)
+* CORS Configuration
+* User isActive check
+* User email field
+* Role in JWT claims
+* Role in LoginResponse
 
 ---
 
 # Next Target
 
-Implementasi Pagination menggunakan:
+Implementasi Department Module:
 
-```java
-PageSpec
-PageResponse
+```text
+DepartmentEntity
+DepartmentView
+DepartmentService
+DepartmentController
 ```
 
-untuk endpoint:
-
-```http
-GET /api/employees
-```
-
-sebelum melanjutkan ke module berikutnya.
+sebelum melanjutkan ke Position Module.

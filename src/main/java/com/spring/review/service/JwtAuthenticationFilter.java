@@ -1,5 +1,6 @@
 package com.spring.review.service;
 
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -7,13 +8,14 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Collections;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -21,6 +23,8 @@ public class JwtAuthenticationFilter
         extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+
+    private final UserAuthService userAuthService;
 
     @Override
     protected void doFilterInternal(
@@ -46,19 +50,47 @@ public class JwtAuthenticationFilter
         String token =
                 authHeader.substring(7);
 
-        String username =
-                jwtService.extractUsername(token);
+        String username;
+
+        try {
+
+            username =
+                    jwtService.extractUsername(token);
+
+        } catch (JwtException | IllegalArgumentException e) {
+
+            filterChain.doFilter(
+                    request,
+                    response
+            );
+
+            return;
+        }
 
         if (username != null
+                && jwtService.isTokenValid(
+                token,
+                username
+        )
+                && userAuthService.userExists(username)
                 && SecurityContextHolder
                 .getContext()
                 .getAuthentication() == null) {
+
+            String role = jwtService.extractRole(token);
+
+            List<SimpleGrantedAuthority> authorities =
+                    List.of(
+                            new SimpleGrantedAuthority(
+                                    "ROLE_" + role
+                            )
+                    );
 
             UsernamePasswordAuthenticationToken auth =
                     new UsernamePasswordAuthenticationToken(
                             username,
                             null,
-                            Collections.emptyList()
+                            authorities
                     );
 
             auth.setDetails(

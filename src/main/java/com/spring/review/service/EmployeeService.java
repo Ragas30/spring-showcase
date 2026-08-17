@@ -1,11 +1,15 @@
 package com.spring.review.service;
 
+import com.blazebit.persistence.CriteriaBuilder;
 import com.blazebit.persistence.CriteriaBuilderFactory;
 import com.blazebit.persistence.view.EntityViewManager;
 import com.blazebit.persistence.view.EntityViewSetting;
 import com.spring.review.bean.employee.CreateEmployeeRequest;
+import com.spring.review.bean.employee.EmployeeSearchRequest;
 import com.spring.review.bean.employee.UpdateEmployeeRequest;
 import com.spring.review.common.ErrorCode;
+import com.spring.review.common.PageResponse;
+import com.spring.review.common.PageSpec;
 import com.spring.review.entity.EmployeeEntity;
 import com.spring.review.entityView.EmployeeView;
 import com.spring.review.exception.BusinessException;
@@ -84,21 +88,41 @@ public class EmployeeService {
      * EMP0001
      * EMP0002
      * EMP0003
+     *
+     * Menggunakan nilai maksimal dari kolom employeeCode
+     * (bukan MAX(id)) supaya tidak bentrok ketika
+     * record terakhir dihapus.
      */
     private String generateEmployeeCode() {
 
-        Long maxId = cbf.create(em, Long.class)
+        String maxCode = cbf.create(
+                        em,
+                        String.class
+                )
                 .from(EmployeeEntity.class)
-                .select("MAX(id)")
+                .select("MAX(employeeCode)")
                 .getSingleResult();
 
-        if (maxId == null) {
-            maxId = 0L;
+        int next = 1;
+
+        if (maxCode != null
+                && maxCode.startsWith("EMP")) {
+
+            try {
+
+                next = Integer.parseInt(
+                        maxCode.substring(3)
+                ) + 1;
+
+            } catch (NumberFormatException e) {
+
+                next = 1;
+            }
         }
 
         return String.format(
                 "EMP%04d",
-                maxId + 1
+                next
         );
     }
 
@@ -119,7 +143,7 @@ public class EmployeeService {
         if (employee == null) {
 
             throw new BusinessException(
-                    ErrorCode.NOT_FOUND,
+                    ErrorCode.EMPLOYEE_NOT_FOUND,
                     "Employee not found"
             );
         }
@@ -159,6 +183,41 @@ public class EmployeeService {
                 .getSingleResult();
     }
 
+    private void applyFilters(
+            CriteriaBuilder<?> cb,
+            EmployeeSearchRequest request
+    ) {
+        if (request.getFullName() != null
+                && !request.getFullName().isBlank()) {
+            cb.where("fullName")
+                    .like()
+                    .value("%" + request.getFullName() + "%")
+                    .noEscape();
+        }
+        if (request.getEmployeeCode() != null
+                && !request.getEmployeeCode().isBlank()) {
+            cb.where("employeeCode")
+                    .like()
+                    .value("%" + request.getEmployeeCode() + "%")
+                    .noEscape();
+        }
+        if (request.getEmail() != null
+                && !request.getEmail().isBlank()) {
+            cb.where("email")
+                    .like()
+                    .value("%" + request.getEmail() + "%")
+                    .noEscape();
+        }
+        if (request.getGender() != null) {
+            cb.where("gender")
+                    .eq(request.getGender());
+        }
+        if (request.getStatus() != null) {
+            cb.where("status")
+                    .eq(request.getStatus());
+        }
+    }
+
     /**
      * Create Employee
      */
@@ -172,7 +231,7 @@ public class EmployeeService {
         )) {
 
             throw new BusinessException(
-                    ErrorCode.BAD_REQUEST,
+                    ErrorCode.EMAIL_ALREADY_EXISTS,
                     "Email already exists"
             );
         }
@@ -240,18 +299,55 @@ public class EmployeeService {
     /**
      * Get All Employees
      */
-    public List<EmployeeView> getEmployees() {
+    public PageResponse<EmployeeView> getEmployees(
+            EmployeeSearchRequest request
+    ) {
 
-        return evm.applySetting(
-                        EntityViewSetting.create(
-                                EmployeeView.class
-                        ),
-                        cbf.create(
-                                em,
-                                EmployeeEntity.class
-                        )
+        var countCb = cbf.create(
+                        em,
+                        Long.class
                 )
-                .getResultList();
+                .from(EmployeeEntity.class)
+                .select("COUNT(id)");
+        applyFilters(countCb, request);
+        Long totalElements = countCb.getSingleResult();
+
+        var dataCb = cbf.create(
+                em,
+                EmployeeEntity.class
+        );
+        applyFilters(dataCb, request);
+        dataCb.orderByAsc("id");
+
+        List<EmployeeView> content =
+                evm.applySetting(
+                                EntityViewSetting.create(
+                                        EmployeeView.class
+                                ),
+                                dataCb
+                        )
+                        .setFirstResult(
+                                request.getPage()
+                                        * request.getSize()
+                        )
+                        .setMaxResults(
+                                request.getSize()
+                        )
+                        .getResultList();
+
+        int totalPages =
+                (int) Math.ceil(
+                        (double) totalElements
+                                / request.getSize()
+                );
+
+        return PageResponse.<EmployeeView>builder()
+                .content(content)
+                .totalElements(totalElements)
+                .page(request.getPage())
+                .size(request.getSize())
+                .totalPages(totalPages)
+                .build();
     }
 
     /**
@@ -272,7 +368,7 @@ public class EmployeeService {
         )) {
 
             throw new BusinessException(
-                    ErrorCode.BAD_REQUEST,
+                    ErrorCode.EMAIL_ALREADY_EXISTS,
                     "Email already exists"
             );
         }

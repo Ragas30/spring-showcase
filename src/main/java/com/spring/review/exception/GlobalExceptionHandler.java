@@ -8,11 +8,12 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    //Business Exception
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusinessException(
             BusinessException ex
@@ -23,11 +24,25 @@ public class GlobalExceptionHandler {
             case BAD_REQUEST ->
                     HttpStatus.BAD_REQUEST;
 
-            case NOT_FOUND ->
+            case NOT_FOUND,
+                 EMPLOYEE_NOT_FOUND,
+                 USER_NOT_FOUND,
+                 DEPARTMENT_NOT_FOUND,
+                 POSITION_NOT_FOUND ->
                     HttpStatus.NOT_FOUND;
 
-            case UNAUTHORIZED ->
+            case UNAUTHORIZED,
+                 INVALID_TOKEN,
+                 TOKEN_EXPIRED ->
                     HttpStatus.UNAUTHORIZED;
+
+            case FORBIDDEN,
+                 ACCESS_DENIED ->
+                    HttpStatus.FORBIDDEN;
+
+            case CONFLICT,
+                 EMAIL_ALREADY_EXISTS ->
+                    HttpStatus.CONFLICT;
 
             default ->
                     HttpStatus.INTERNAL_SERVER_ERROR;
@@ -44,17 +59,24 @@ public class GlobalExceptionHandler {
                 .status(status)
                 .body(response);
     }
-    // Validation Exception
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleValidationException(
             MethodArgumentNotValidException ex
     ) {
 
-        String message = ex
+        List<String> errors = ex
                 .getBindingResult()
-                .getFieldError()
-                .getDefaultMessage();
+                .getFieldErrors()
+                .stream()
+                .map(fieldError ->
+                        fieldError.getField() + ": "
+                                + fieldError.getDefaultMessage()
+                )
+                .collect(Collectors.toList());
+
+        String message = String.join("; ", errors);
 
         return ErrorResponse.builder()
                 .code("VALIDATION_ERROR")
@@ -63,7 +85,6 @@ public class GlobalExceptionHandler {
                 .build();
     }
 
-    // Unknown Exception
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ErrorResponse handleException(

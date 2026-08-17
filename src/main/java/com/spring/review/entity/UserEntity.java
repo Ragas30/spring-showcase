@@ -32,10 +32,19 @@ public class UserEntity {
     private String password;
 
     @Column(
+            unique = true,
+            length = 150
+    )
+    private String email;
+
+    @Column(
             nullable = false,
             length = 50
     )
     private String role;
+
+    @Column(nullable = false)
+    private Boolean isActive;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;

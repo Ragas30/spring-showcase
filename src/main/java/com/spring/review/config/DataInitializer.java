@@ -24,25 +24,9 @@ public class DataInitializer implements CommandLineRunner {
     @Transactional
     public void run(String... args) {
 
-        TypedQuery<UserEntity> query =
-                entityManager.createQuery(
-                        """
-                        SELECT u
-                        FROM UserEntity u
-                        WHERE u.username = :username
-                        """,
-                        UserEntity.class
-                );
+        fixExistingUsers();
 
-        query.setParameter(
-                "username",
-                "admin"
-        );
-
-        List<UserEntity> users =
-                query.getResultList();
-
-        if (!users.isEmpty()) {
+        if (userExists("admin")) {
             return;
         }
 
@@ -55,6 +39,7 @@ public class DataInitializer implements CommandLineRunner {
                                 )
                         )
                         .role("ADMIN")
+                        .isActive(true)
                         .createdAt(LocalDateTime.now())
                         .updatedAt(LocalDateTime.now())
                         .build();
@@ -64,5 +49,52 @@ public class DataInitializer implements CommandLineRunner {
         System.out.println(
                 "Default admin user created"
         );
+    }
+
+    private void fixExistingUsers() {
+
+        List<UserEntity> users = entityManager
+                .createQuery(
+                        """
+                        SELECT u FROM UserEntity u
+                        WHERE u.isActive IS NULL
+                        """,
+                        UserEntity.class
+                )
+                .getResultList();
+
+        for (UserEntity user : users) {
+            user.setIsActive(true);
+            user.setUpdatedAt(LocalDateTime.now());
+        }
+
+        if (!users.isEmpty()) {
+            System.out.println(
+                    "Fixed " + users.size()
+                            + " users with missing isActive"
+            );
+        }
+    }
+
+    private boolean userExists(
+            String username
+    ) {
+
+        TypedQuery<Long> query =
+                entityManager.createQuery(
+                        """
+                        SELECT COUNT(u)
+                        FROM UserEntity u
+                        WHERE u.username = :username
+                        """,
+                        Long.class
+                );
+
+        query.setParameter(
+                "username",
+                username
+        );
+
+        return query.getSingleResult() > 0;
     }
 }

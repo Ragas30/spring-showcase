@@ -9,5 +9,7 @@ public class CurrentUserResponse {
 
     private String username;
 
+    private String role;
+
     private Boolean authenticated;
 }
