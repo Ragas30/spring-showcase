@@ -57,6 +57,17 @@ public class EmployeeEntity {
     @Enumerated(EnumType.STRING)
     private EmployeeStatus status;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "department_id")
+    private DepartmentEntity department;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "position_id")
+    private PositionEntity position;
+
+    @Column(length = 255)
+    private String photoUrl;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

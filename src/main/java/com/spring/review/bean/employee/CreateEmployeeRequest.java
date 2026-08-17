@@ -31,4 +31,11 @@ public class CreateEmployeeRequest {
 
     @NotNull(message = "Status wajib diisi")
     private EmployeeStatus status;
+
+    private Long departmentId;
+
+    private Long positionId;
+
+    private String photoUrl;
+
 }

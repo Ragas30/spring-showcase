@@ -1,6 +1,7 @@
 package com.spring.review.entityView;
 
 import com.blazebit.persistence.view.EntityView;
+import com.blazebit.persistence.view.Mapping;
 import com.spring.review.entity.EmployeeEntity;
 import com.spring.review.entity.EmployeeStatus;
 import com.spring.review.entity.Gender;
@@ -28,6 +29,14 @@ public interface EmployeeView {
     LocalDate getHireDate();
 
     EmployeeStatus getStatus();
+
+    @Mapping("department.name")
+    String getDepartmentName();
+
+    @Mapping("position.name")
+    String getPositionName();
+
+    String getPhotoUrl();
 
     LocalDateTime getCreatedAt();
 

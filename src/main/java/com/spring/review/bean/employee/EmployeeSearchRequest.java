@@ -19,4 +19,9 @@ public class EmployeeSearchRequest extends PageSpec {
     private Gender gender;
 
     private EmployeeStatus status;
+
+    private Long departmentId;
+
+    private Long positionId;
+
 }

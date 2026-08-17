@@ -10,7 +10,9 @@ import com.spring.review.bean.employee.UpdateEmployeeRequest;
 import com.spring.review.common.ErrorCode;
 import com.spring.review.common.PageResponse;
 import com.spring.review.common.PageSpec;
+import com.spring.review.entity.DepartmentEntity;
 import com.spring.review.entity.EmployeeEntity;
+import com.spring.review.entity.PositionEntity;
 import com.spring.review.entityView.EmployeeView;
 import com.spring.review.exception.BusinessException;
 import jakarta.persistence.EntityManager;
@@ -151,6 +153,56 @@ public class EmployeeService {
         return employee;
     }
 
+    private DepartmentEntity findDepartmentById(
+            Long id
+    ) {
+
+        if (id == null) {
+            return null;
+        }
+
+        DepartmentEntity department =
+                em.find(
+                        DepartmentEntity.class,
+                        id
+                );
+
+        if (department == null) {
+
+            throw new BusinessException(
+                    ErrorCode.DEPARTMENT_NOT_FOUND,
+                    "Department not found"
+            );
+        }
+
+        return department;
+    }
+
+    private PositionEntity findPositionById(
+            Long id
+    ) {
+
+        if (id == null) {
+            return null;
+        }
+
+        PositionEntity position =
+                em.find(
+                        PositionEntity.class,
+                        id
+                );
+
+        if (position == null) {
+
+            throw new BusinessException(
+                    ErrorCode.POSITION_NOT_FOUND,
+                    "Position not found"
+            );
+        }
+
+        return position;
+    }
+
     /**
      * Mapping Entity → EmployeeView
      */
@@ -216,6 +268,14 @@ public class EmployeeService {
             cb.where("status")
                     .eq(request.getStatus());
         }
+        if (request.getDepartmentId() != null) {
+            cb.where("department.id")
+                    .eq(request.getDepartmentId());
+        }
+        if (request.getPositionId() != null) {
+            cb.where("position.id")
+                    .eq(request.getPositionId());
+        }
     }
 
     /**
@@ -261,6 +321,19 @@ public class EmployeeService {
                         )
                         .status(
                                 request.getStatus()
+                        )
+                        .department(
+                                findDepartmentById(
+                                        request.getDepartmentId()
+                                )
+                        )
+                        .position(
+                                findPositionById(
+                                        request.getPositionId()
+                                )
+                        )
+                        .photoUrl(
+                                request.getPhotoUrl()
                         )
                         .createdAt(
                                 LocalDateTime.now()
@@ -399,6 +472,22 @@ public class EmployeeService {
 
         employee.setStatus(
                 request.getStatus()
+        );
+
+        employee.setDepartment(
+                findDepartmentById(
+                        request.getDepartmentId()
+                )
+        );
+
+        employee.setPosition(
+                findPositionById(
+                        request.getPositionId()
+                )
+        );
+
+        employee.setPhotoUrl(
+                request.getPhotoUrl()
         );
 
         employee.setUpdatedAt(
