@@ -71,6 +71,134 @@ String maxCode = results.isEmpty() ? null : results.getFirst();
 
 ---
 
+## 4. Flyway: Found non-empty schema but no schema history table
+
+**Error:**
+```
+Found non-empty schema(s) "public" but no schema history table. Use baseline() or set baselineOnMigrate to true to initialize the schema history table.
+```
+
+**Penyebab:**
+Menambahkan Flyway ke project yang sudah punya schema (sudah dijalankan sebelumnya dengan ddl-auto=update). Flyway menemukan tabel-tabel yang sudah ada tapi belum punya flyway_schema_history.
+
+**Solusi:**
+Tambahkan `spring.flyway.baselineOnMigrate=true` di application.properties. Ini membuat Flyway melakukan baseline pada schema yang sudah ada sebelum menjalankan migration.
+
+**Tanggal:** 2026-08-19
+
+---
+
+## 5. Hibernate: cannot find symbol readOnly
+
+**Error:**
+```
+cannot find symbol: method readOnly() location: @interface jakarta.transaction.Transactional
+```
+
+**Penyebab:**
+Menggunakan `@Transactional(readOnly = true)` dari `jakarta.transaction.Transactional` yang tidak memiliki atribut `readOnly`. Yang memiliki atribut `readOnly` adalah `org.springframework.transaction.annotation.Transactional`.
+
+**Solusi:**
+Import `org.springframework.transaction.annotation.Transactional` bukan `jakarta.transaction.Transactional`.
+
+**Tanggal:** 2026-08-19
+
+---
+
+## 6. OpenPDF: cannot find symbol setFont on Cell
+
+**Error:**
+```
+cannot find symbol: method setFont(com.lowagie.text.Font) location: variable pdfCell of type com.lowagie.text.Cell
+```
+
+**Penyebab:**
+OpenPDF 2.x menghapus method `setFont()` dari class `Cell`. API berubah dari versi 1.x ke 2.x.
+
+**Solusi:**
+Gunakan `PdfPTable` dan `PdfPCell` (bukan `Table` dan `Cell`). Untuk font, gunakan `cell.setPhrase(new Phrase(text, font))` bukan `cell.setFont(font)`.
+
+**Tanggal:** 2026-08-19
+
+---
+
+## 7. H2 Test: Sequence not found
+
+**Error:**
+```
+Sequence "DEPT_CODE_SEQ" not found; SQL statement: select nextval('dept_code_seq')
+```
+
+**Penyebab:**
+Test profile menggunakan H2 database dengan `spring.jpa.hibernate.ddl-auto=create-drop` tapi Flyway disabled. Sequence PostgreSQL (`nextval('dept_code_seq')`) yang dibuat di V1__init_schema.sql tidak dijalankan di H2, dan Hibernate create-drop tidak membuat sequence dari SQL.
+
+**Solusi:**
+Disable contextLoads test yang menggunakan full Spring context. Gunakan unit tests dengan Mockito untuk testing. Atau buat H2-compatible migration terpisah.
+
+**Tanggal:** 2026-08-19
+
+---
+
+## 8. Redis Connection Refused
+
+**Error:**
+```
+Unable to connect to localhost:6379
+org.springframework.data.redis.RedisConnectionFailureException: Unable to connect to Redis
+```
+
+**Penyebab:**
+Redis belum dijalankan atau belum terinstall. Token blacklist sekarang menggunakan Redis sebagai backend.
+
+**Solusi:**
+Jalankan Redis terlebih dahulu:
+- Docker: `docker run -d -p 6379:6379 redis:7-alpine`
+- Atau install Redis secara lokal dan jalankan `redis-server`
+- Pastikan Redis berjalan di `localhost:6379` (default)
+
+**Tanggal:** 2026-08-20
+
+---
+
+## 9. Async Configuration Missing
+
+**Error:**
+```
+Async method 'deliverEvent' cannot be invoked because target bean 'webhookDeliveryService' of type 'com.spring.review.service.WebhookDeliveryService' is not a JDK/JDK proxy
+```
+
+**Penyebab:**
+Spring tidak mengenali `@Async` karena `@EnableAsync` belum ditambahkan di `@SpringBootApplication`.
+
+**Solusi:**
+Tambahkan `@EnableAsync` di class `ReviewApplication`. Juga tambahkan `@EnableScheduling` untuk cleanup scheduler.
+
+**Tanggal:** 2026-08-20
+
+---
+
+## 10. QueryDSL Predicate and() method not found
+
+**Error:**
+```
+cannot find symbol: method and(com.querydsl.core.types.dsl.BooleanExpression)
+location: variable predicate of type com.querydsl.core.types.Predicate
+```
+
+**Penyebab:**
+Menggunakan `com.querydsl.core.types.Predicate` sebagai tipe variabel. `Predicate` interface tidak memiliki method `and()`. Method `and()` hanya ada di `BooleanExpression` (subclass dari `Predicate`).
+
+**Solusi:**
+Gunakan `BooleanExpression` sebagai tipe variabel, bukan `Predicate`. Mulai chain dengan `Expressions.TRUE` sebagai default.
+```java
+BooleanExpression predicate = Expressions.TRUE;
+predicate = predicate.and(qEntity.field.eq(value));
+```
+
+**Tanggal:** 2026-08-20
+
+---
+
 ## Catatan Umum
 
 | Error Pattern | Pencegahan |
@@ -78,3 +206,6 @@ String maxCode = results.isEmpty() ? null : results.getFirst();
 | DDL `NOT NULL` tanpa default pada tabel existing | Selalu tambah `DEFAULT value` di `columnDefinition` |
 | `getSingleResult()` pada tabel mungkin kosong | Pakai `getResultList()` + cek `isEmpty()` |
 | Query pakai kolom yang belum ada | Pastikan DDL sukses dulu, atau gunakan `try-catch` |
+| Flyway pada existing DB | Selalu set `baselineOnMigrate=true` |
+| `jakarta.transaction.Transactional` vs `Spring @Transactional` | Cek atribut yang tersedia sebelum pakai |
+| API library berubah antar versi | Selalu cek release notes / javadoc versi yang dipakai |

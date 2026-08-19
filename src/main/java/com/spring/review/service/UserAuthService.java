@@ -30,6 +30,8 @@ public class UserAuthService {
 
     private final JwtService jwtService;
 
+    private final TokenBlacklistService tokenBlacklistService;
+
     public LoginResponse login(
             LoginRequest request
     ) {
@@ -234,5 +236,69 @@ public class UserAuthService {
         }
 
         return null;
+    }
+
+    @Transactional
+    public void logout(String token) {
+        tokenBlacklistService.blacklist(token);
+    }
+
+    @Transactional
+    public void changePassword(
+            String username,
+            String oldPassword,
+            String newPassword
+    ) {
+
+        CriteriaBuilder<UserEntity> cb =
+                cbf.create(
+                        entityManager,
+                        UserEntity.class
+                );
+
+        cb.where("username")
+                .eq(username);
+
+        AuthUserView user =
+                evm.applySetting(
+                                com.blazebit.persistence.view
+                                        .EntityViewSetting
+                                        .create(AuthUserView.class),
+                                cb
+                        )
+                        .getSingleResultOrNull();
+
+        if (user == null) {
+            throw new BusinessException(
+                    ErrorCode.USER_NOT_FOUND,
+                    "User tidak ditemukan"
+            );
+        }
+
+        boolean passwordValid =
+                passwordEncoder.matches(
+                        oldPassword,
+                        user.getPassword()
+                );
+
+        if (!passwordValid) {
+            throw new BusinessException(
+                    ErrorCode.INVALID_USERNAME_OR_PASSWORD,
+                    "Password lama salah"
+            );
+        }
+
+        UserEntity userEntity =
+                entityManager.find(
+                        UserEntity.class,
+                        user.getId()
+                );
+
+        userEntity.setPassword(
+                passwordEncoder.encode(newPassword)
+        );
+        userEntity.setUpdatedAt(
+                java.time.LocalDateTime.now()
+        );
     }
 }

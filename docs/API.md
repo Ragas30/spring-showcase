@@ -11,13 +11,26 @@ Sistem manajemen karyawan berbasis REST API dengan Spring Boot. Menggunakan JWT 
 | Language       | Java 21+                           |
 | Framework      | Spring Boot 3.5.3                  |
 | Security       | Spring Security + JWT              |
-| ORM            | Spring Data JPA + Hibernate        |
+| ORM            | Blaze-Persistence (NO JPA Repositories) |
 | DB View        | Blaze-Persistence Entity View      |
 | Database       | PostgreSQL 17                      |
+| Migrations     | Flyway                             |
 | Validation     | Hibernate Validator (Jakarta)      |
 | API Docs       | Springdoc OpenAPI (Swagger UI)     |
+| Cache/Blacklist| Redis                              |
+| Monitoring     | Spring Boot Actuator               |
 | Build Tool     | Maven                              |
 | Code Gen       | Lombok                             |
+| QueryDSL       | OpenFeign QueryDSL 7.3.0 (type-safe queries) |
+
+### Dependencies
+
+| Dependency                      | Version | Scope                          |
+|---------------------------------|---------|--------------------------------|
+| `spring-boot-starter-data-redis`|         | compile                        |
+| `spring-boot-starter-actuator`  |         | compile                        |
+| `querydsl-jpa`                  | 7.3.0   | compile                        |
+| `querydsl-apt`                  | 7.3.0   | provided (annotation processor)|
 
 ---
 
@@ -26,13 +39,16 @@ Sistem manajemen karyawan berbasis REST API dengan Spring Boot. Menggunakan JWT 
 ```
 src/main/java/com/spring/review/
 │
-├── ReviewApplication.java              # Entry point aplikasi
+├── ReviewApplication.java              # Entry point aplikasi (@EnableAsync, @EnableScheduling)
 │
 ├── entity/                             # JPA Entity (model/database table)
 │   ├── UserEntity.java                 #   Tabel users
 │   ├── EmployeeEntity.java             #   Tabel employees
 │   ├── DepartmentEntity.java           #   Tabel departments
 │   ├── PositionEntity.java             #   Tabel positions
+│   ├── AuditLogEntity.java             #   Tabel audit_logs
+│   ├── WebhookSubscriptionEntity.java  #   Tabel webhook_subscriptions
+│   ├── WebhookLogEntity.java           #   Tabel webhook_logs
 │   ├── Gender.java                     #   Enum: MALE, FEMALE
 │   └── EmployeeStatus.java             #   Enum: ACTIVE, INACTIVE, RESIGNED
 │
@@ -41,14 +57,19 @@ src/main/java/com/spring/review/
 │   ├── EmployeeView.java               #   Employee read-only view (termasuk department & position name)
 │   ├── DepartmentView.java             #   Department read-only view
 │   ├── PositionView.java               #   Position read-only view
-│   └── AuthUserView.java               #   Auth user view
+│   ├── AuthUserView.java               #   Auth user view
+│   ├── AuditLogView.java               #   Audit log read-only view
+│   ├── WebhookSubscriptionView.java    #   Webhook subscription read-only view
+│   └── WebhookLogView.java             #   Webhook log read-only view
 │
 ├── bean/                               # Request/Response DTOs
 │   ├── auth/
 │   │   ├── LoginRequest.java           #   Login request body
 │   │   ├── LoginResponse.java          #   Login response (tokens)
 │   │   ├── RefreshTokenRequest.java    #   Refresh token request body
-│   │   └── CurrentUserResponse.java    #   Current user info response
+│   │   ├── CurrentUserResponse.java    #   Current user info response
+│   │   ├── LogoutRequest.java          #   Logout request body
+│   │   └── ChangePasswordRequest.java  #   Change password request body
 │   ├── employee/
 │   │   ├── CreateEmployeeRequest.java  #   Create employee request body
 │   │   ├── UpdateEmployeeRequest.java  #   Update employee request body
@@ -57,35 +78,60 @@ src/main/java/com/spring/review/
 │   │   ├── CreateDepartmentRequest.java  #   Create department request body
 │   │   ├── UpdateDepartmentRequest.java  #   Update department request body
 │   │   └── DepartmentSearchRequest.java  #   Search/filter departments params
-│   └── position/
-│       ├── CreatePositionRequest.java  #   Create position request body
-│       ├── UpdatePositionRequest.java  #   Update position request body
-│       └── PositionSearchRequest.java  #   Search/filter positions params
+│   ├── position/
+│   │   ├── CreatePositionRequest.java  #   Create position request body
+│   │   ├── UpdatePositionRequest.java  #   Update position request body
+│   │   └── PositionSearchRequest.java  #   Search/filter positions params
+│   ├── audit/
+│   │   └── AuditLogSearchRequest.java  #   Search/filter audit logs params
+│   ├── webhook/
+│   │   ├── CreateWebhookRequest.java   #   Create webhook subscription request body
+│   │   ├── UpdateWebhookRequest.java   #   Update webhook subscription request body
+│   │   └── WebhookSearchRequest.java   #   Search/filter webhook subscriptions params
+│   └── dashboard/
+│       ├── DashboardStatsResponse.java #   Dashboard statistics response
+│       └── HiringTrendResponse.java    #   Hiring trend response
 │
 ├── controller/                         # REST Controllers
-│   ├── AuthController.java             #   /api/auth/** - Login, refresh, current user
+│   ├── AuthController.java             #   /api/auth/** - Login, refresh, current user, logout, change password
 │   ├── EmployeeController.java         #   /api/employees/** - CRUD employees
 │   ├── DepartmentController.java       #   /api/departments/** - CRUD departments
 │   ├── PositionController.java         #   /api/positions/** - CRUD positions
-│   └── FileController.java             #   /api/files/** - Upload & delete files
+│   ├── FileController.java             #   /api/files/** - Upload & delete files
+│   ├── AuditLogController.java         #   /api/audit-logs/** - View audit logs (ADMIN only)
+│   ├── ExportController.java           #   /api/export/** - Export/Import Excel & PDF
+│   ├── DashboardController.java        #   /api/dashboard/** - Dashboard statistics
+│   └── WebhookController.java         #   /api/webhooks/** - Webhook subscription management
 │
 ├── service/                            # Business Logic
-│   ├── UserAuthService.java            #   Auth logic (login, register, refresh)
+│   ├── UserAuthService.java            #   Auth logic (login, register, refresh, logout, change password)
 │   ├── EmployeeService.java            #   Employee CRUD logic
 │   ├── DepartmentService.java          #   Department CRUD logic
 │   ├── PositionService.java            #   Position CRUD logic
 │   ├── FileStorageService.java         #   File upload, delete, validation
 │   ├── JwtService.java                 #   JWT token generation & validation
-│   └── JwtAuthenticationFilter.java    #   Filter request, validate JWT header
+│   ├── JwtAuthenticationFilter.java    #   Filter request, validate JWT header + blacklist check
+│   ├── TokenBlacklistService.java      #   Token blacklist (Redis-backed, 7-day TTL)
+│   ├── AuditLogService.java            #   Audit log record & search with Blaze
+│   ├── ExportImportService.java        #   Excel/PDF export, Excel import
+│   ├── DashboardService.java           #   Dashboard statistics & hiring trend
+│   ├── WebhookService.java             #   Webhook subscription CRUD
+│   └── WebhookDeliveryService.java     #   Async webhook event delivery with HMAC signature
 │
 ├── config/                             # Configuration
 │   ├── SecurityConfig.java             #   Spring Security config + CORS
 │   ├── ApplicationConfig.java          #   App-wide bean config
-│   ├── BlazeConfig.java                #   Blaze-Persistence config
+│   ├── BlazeConfig.java                #   Blaze-Persistence config (+ AuditLogView registration)
 │   ├── FileStorageConfig.java          #   File upload config (path, size, types)
 │   ├── WebConfig.java                  #   Static resource serving (/uploads/**)
-│   ├── DataInitializer.java            #   Seed data saat pertama kali run
+│   ├── DataInitializer.java            #   Seed data saat pertama kali run (DB sequence-based codes)
 │   └── OpenApiConfig.java              #   Swagger/OpenAPI config
+│
+├── aspect/                             # AOP Aspects
+│   └── AuditAspect.java               #   @Auditable aspect - auto-records audit logs
+│
+├── annotation/                         # Custom Annotations
+│   └── Auditable.java                  #   @Auditable annotation for audit logging
 │
 ├── common/                             # Shared classes
 │   ├── ApiResponse.java                #   Wrapper response {code, message, data}
@@ -98,7 +144,18 @@ src/main/java/com/spring/review/
 │   ├── BusinessException.java          #   Custom business exception
 │   └── ErrorResponse.java              #   Error response body
 │
-└── validation/                         # Custom validators (empty, reserved for future)
+├── validation/                         # Custom validators
+│   ├── UniqueEmail.java               #   @UniqueEmail annotation
+│   ├── UniqueEmailValidator.java       #   Validates email uniqueness
+│   ├── ExistingDepartment.java         #   @ExistingDepartment annotation
+│   ├── ExistingDepartmentValidator.java #  Validates department exists by ID
+│   ├── ExistingPosition.java           #   @ExistingPosition annotation
+│   └── ExistingPositionValidator.java   #  Validates position exists by ID
+│
+└── db/                                 # Database migrations
+    └── migration/
+        ├── V1__init_schema.sql         #   Flyway initial schema
+        └── V2__add_webhook_tables.sql  #   Flyway webhook tables migration
 ```
 
 ---
@@ -115,6 +172,13 @@ CREATE DATABASE karyawan;
 
 4. Pastikan PostgreSQL jalan di `localhost:5432`
 
+5. **Redis** - diperlukan untuk token blacklist
+
+```bash
+# Pastikan Redis berjalan di localhost:6379
+redis-cli ping
+```
+
 ---
 
 ## Configuration
@@ -127,16 +191,29 @@ spring.datasource.url=jdbc:postgresql://localhost:5432/karyawan
 spring.datasource.username=postgres
 spring.datasource.password=12345678
 
-# Hibernate - auto create/update schema
-spring.jpa.hibernate.ddl-auto=update
+# Hibernate - no auto schema, managed by Flyway
+spring.jpa.hibernate.ddl-auto=none
+
+# Flyway
+spring.flyway.enabled=true
+spring.flyway.baseline-on-migrate=true
 
 # JWT
 jwt.secret=ems-development-secret-key-2026-super-secure-minimum-32-characters
 jwt.expiration=86400000          # 1 hari (ms)
 jwt.refresh-expiration=604800000 # 7 hari (ms)
+
+# Redis
+spring.data.redis.host=localhost
+spring.data.redis.port=6379
+
+# Actuator
+management.endpoints.web.exposure.include=health,info,metrics
+management.endpoint.health.show-details=when-authorized
+management.info.env.enabled=true
 ```
 
-> **Note:** `ddl-auto=update` otomatis membuat/mengupdate schema. Untuk production, gunakan `validate` atau `none`.
+> **Note:** Schema dikelola oleh Flyway migration (`ddl-auto=none`). `baselineOnMigrate=true` memungkinkan Flyway bekerja pada database yang sudah ada.
 
 ---
 
@@ -187,7 +264,34 @@ Saat pertama kali run, aplikasi otomatis membuat 3 user:
 | hr_user   | hr123      | HR      | Create, Read, Update employees     |
 | manager   | manager123 | MANAGER | Read, Update employees             |
 
-### 3. Kelola Departments
+### 3. Logout
+
+```
+POST /api/auth/logout
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "accessToken": "<accessToken>"
+}
+```
+
+Token yang di-logout akan ditambahkan ke blacklist (Redis). Token yang sudah di-blacklist tidak bisa digunakan lagi selama 7 hari (TTL 168 jam).
+
+### 4. Change Password
+
+```
+POST /api/auth/change-password
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "oldPassword": "admin123",
+  "newPassword": "newpassword123"
+}
+```
+
+### 5. Kelola Departments
 
 **Create Department:**
 
@@ -201,7 +305,7 @@ Authorization: Bearer <token>
 }
 ```
 
-`departmentCode` di-generate otomatis (DEPT001, DEPT002, dst).
+`departmentCode` di-generate otomatis menggunakan DB sequence (DEPT001, DEPT002, dst).
 
 **Search & Pagination:**
 
@@ -239,7 +343,7 @@ Authorization: Bearer <token>
 
 > Hanya role **ADMIN** yang bisa delete.
 
-### 4. Kelola Positions
+### 6. Kelola Positions
 
 **Create Position:**
 
@@ -254,7 +358,7 @@ Authorization: Bearer <token>
 }
 ```
 
-`positionCode` di-generate otomatis (POS001, POS002, dst).
+`positionCode` di-generate otomatis menggunakan DB sequence (POS001, POS002, dst). Validasi `@ExistingDepartment` memastikan `departmentId` valid.
 
 **Search & Pagination:**
 
@@ -293,7 +397,7 @@ Authorization: Bearer <token>
 
 > Hanya role **ADMIN** yang bisa delete.
 
-### 5. Kelola Employees
+### 7. Kelola Employees
 
 **Create Employee:**
 
@@ -309,9 +413,12 @@ Authorization: Bearer <token>
   "birthDate": "1990-05-15",
   "hireDate": "2022-01-10",
   "status": "ACTIVE",
-  "departmentId": 1
+  "departmentId": 1,
+  "positionId": 1
 }
 ```
+
+`employeeCode` di-generate otomatis menggunakan DB sequence (EMP0001, EMP0002, dst). Validasi `@UniqueEmail`, `@ExistingDepartment`, `@ExistingPosition` memastikan input valid.
 
 **Search & Pagination:**
 
@@ -363,7 +470,8 @@ Authorization: Bearer <token>
   "birthDate": "1990-05-15",
   "hireDate": "2022-01-10",
   "status": "ACTIVE",
-  "departmentId": 2
+  "departmentId": 2,
+  "positionId": 1
 }
 ```
 
@@ -376,7 +484,7 @@ Authorization: Bearer <token>
 
 > Hanya role **ADMIN** yang bisa delete.
 
-### 6. Upload Foto Employee
+### 8. Upload Foto Employee
 
 **Upload File:**
 
@@ -415,6 +523,7 @@ Authorization: Bearer <token>
   "hireDate": "2022-01-10",
   "status": "ACTIVE",
   "departmentId": 1,
+  "positionId": 1,
   "photoUrl": "/uploads/a1b2c3d4.jpg"
 }
 ```
@@ -438,7 +547,7 @@ GET /uploads/{filename}
 - Format: JPEG, PNG, WebP
 - Maksimal: 5 MB
 
-### 7. Refresh Token
+### 9. Refresh Token
 
 Ketika `accessToken` expired (24 jam), gunakan `refreshToken` untuk dapat baru:
 
@@ -453,50 +562,376 @@ Content-Type: application/json
 
 `refreshToken` berlaku selama 7 hari.
 
-### 8. Cek User Login
+### 10. Cek User Login
 
 ```
 GET /api/auth/me
 Authorization: Bearer <token>
 ```
 
-### 9. Swagger UI
+### 11. Export Data
+
+**Export ke Excel:**
+
+```
+GET /api/export/excel
+Authorization: Bearer <token>
+```
+
+Response: File `.xlsx` berisi data employees, departments, dan positions.
+
+**Export ke PDF:**
+
+```
+GET /api/export/pdf
+Authorization: Bearer <token>
+```
+
+Response: File `.pdf` berisi laporan data employees.
+
+### 12. Import Data
+
+**Import dari Excel:**
+
+```
+POST /api/export/import
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+
+file: <Excel file (.xlsx)>
+```
+
+File Excel harus mengikuti format template yang sesuai. Data akan di-import ke tabel employees.
+
+### 13. Dashboard
+
+**Statistik Dashboard:**
+
+```
+GET /api/dashboard/stats
+Authorization: Bearer <token>
+```
+
+Response:
+
+```json
+{
+  "code": "SUCCESS",
+  "message": "Dashboard stats retrieved successfully",
+  "data": {
+    "totalEmployees": 100,
+    "totalDepartments": 5,
+    "totalPositions": 20,
+    "activeEmployees": 85,
+    "inactiveEmployees": 10,
+    "resignedEmployees": 5
+  }
+}
+```
+
+**Hiring Trend:**
+
+```
+GET /api/dashboard/hiring-trend
+Authorization: Bearer <token>
+```
+
+Response:
+
+```json
+{
+  "code": "SUCCESS",
+  "message": "Hiring trend retrieved successfully",
+  "data": [
+    { "year": 2024, "month": 1, "count": 5 },
+    { "year": 2024, "month": 2, "count": 8 }
+  ]
+}
+```
+
+### 14. Audit Log
+
+```
+GET /api/audit-logs?page=0&size=10&action=CREATE&entityType=EmployeeEntity
+Authorization: Bearer <token>
+```
+
+Parameter filter: `entityType`, `entityId`, `action`, `performedBy`, `dateFrom`, `dateTo`
+
+> Hanya role **ADMIN** yang bisa mengakses audit logs.
+
+### 15. Swagger UI
 
 Buka `http://localhost:8080/swagger-ui.html` untuk interactive API documentation. Bisa langsung test semua endpoint dari browser.
 
 > Untuk authorize di Swagger, klik tombol **Authorize** di atas kanan, lalu masukkan: `Bearer <token>`
 
+### 16. Webhook
+
+**Create Subscription:**
+
+```
+POST /api/webhooks
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "url": "https://example.com/webhook",
+  "events": ["employee.created", "employee.updated"],
+  "description": "Employee event notifications"
+}
+```
+
+**List Subscriptions:**
+
+```
+GET /api/webhooks?page=0&size=10
+Authorization: Bearer <token>
+```
+
+**Get Subscription:**
+
+```
+GET /api/webhooks/1
+Authorization: Bearer <token>
+```
+
+**Update Subscription:**
+
+```
+PUT /api/webhooks/1
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "url": "https://example.com/webhook/updated",
+  "events": ["employee.created", "employee.updated", "employee.deleted"],
+  "isActive": true
+}
+```
+
+**Delete Subscription:**
+
+```
+DELETE /api/webhooks/1
+Authorization: Bearer <token>
+```
+
+**Get Webhook Logs:**
+
+```
+GET /api/webhooks/logs?page=0&size=10&subscriptionId=1&status=SUCCESS
+Authorization: Bearer <token>
+```
+
+Parameter filter: `subscriptionId`, `event`, `status`, `dateFrom`, `dateTo`
+
+> Hanya role **ADMIN** yang bisa mengelola webhooks.
+
+**Supported Events:**
+
+| Event                    | Trigger                              |
+|--------------------------|--------------------------------------|
+| `employee.created`       | Employee created                     |
+| `employee.updated`       | Employee updated                     |
+| `employee.deleted`       | Employee deleted                     |
+| `department.created`     | Department created                   |
+| `department.updated`     | Department updated                   |
+| `department.deleted`     | Department deleted                   |
+| `position.created`       | Position created                     |
+| `position.updated`       | Position updated                     |
+| `position.deleted`       | Position deleted                     |
+
+**Webhook Delivery:**
+
+Setiap delivery dilakukan secara async dan menyertakan header `X-Webhook-Signature` berisi HMAC-SHA256 signature dari payload menggunakan secret subscription sebagai key.
+
+### 17. Redis Token Blacklist
+
+Token blacklist sekarang menggunakan **Redis** sebagai backing store, menggantikan in-memory `ConcurrentHashMap`.
+
+**Keunggulan:**
+- Token blacklist persist di Redis, tidak hilang saat application restart
+- TTL otomatis 168 jam (7 hari), sesuai dengan `jwt.refresh-expiration`
+- Performa tinggi untuk high-concurrency blacklist checks
+
+**Prerequisite:** Redis harus berjalan di `localhost:6379`.
+
+### 18. Spring Actuator
+
+**Health Check (Public):**
+
+```
+GET /actuator/health
+```
+
+Response:
+
+```json
+{
+  "status": "UP",
+  "components": {
+    "db": { "status": "UP" },
+    "redis": { "status": "UP" }
+  }
+}
+```
+
+> Endpoint ini tidak memerlukan authentication.
+
+**Application Info (ADMIN only):**
+
+```
+GET /actuator/info
+Authorization: Bearer <token>
+```
+
+**Metrics (ADMIN only):**
+
+```
+GET /actuator/metrics
+Authorization: Bearer <token>
+```
+
+### 19. QueryDSL Integration
+
+Project menggunakan **QueryDSL** (OpenFeign fork v7.3.0) untuk type-safe queries. Pendekatan hybrid: QueryDSL untuk query building (count, predicates, ID fetching) + Blaze-Persistence Entity Views untuk DTO projection.
+
+**Q-Classes:**
+
+Q-classes di-generate otomatis dari entity menggunakan annotation processor:
+
+```text
+QEmployeeEntity
+QDepartmentEntity
+QPositionEntity
+QWebhookSubscriptionEntity
+QWebhookLogEntity
+QAuditLogEntity
+```
+
+**Predicates dengan BooleanExpression:**
+
+```java
+BooleanExpression predicate = Expressions.TRUE;
+predicate = predicate.and(qEmployee.fullName.containsIgnoreCase(keyword));
+predicate = predicate.and(qEmployee.status.eq(EmployeeStatus.ACTIVE));
+
+Long count = queryFactory.select(qEmployee.count())
+    .from(qEmployee)
+    .where(predicate)
+    .fetchOne();
+```
+
+`Expressions.TRUE` digunakan sebagai default untuk chaining predicates, karena `BooleanExpression` (bukan `Predicate`) yang memiliki method `and()`.
+
+**JPAQueryFactory:**
+
+`JPAQueryFactory` digunakan untuk count queries dan ID fetching:
+
+```java
+List<Long> ids = queryFactory.select(qEmployee.id)
+    .from(qEmployee)
+    .where(predicate)
+    .orderBy(qEmployee.fullName.asc())
+    .offset(page * size)
+    .limit(size)
+    .fetch();
+```
+
+**Blaze-Persistence Entity Views:**
+
+`CriteriaBuilderFactory` + `EntityViewManager` masih digunakan untuk single entity view lookups:
+
+```java
+evm.applySetting(
+    EntityViewSetting.create(EmployeeView.class),
+    cbf.create(em, EmployeeEntity.class)
+        .where("id").eq(id)
+).getSingleResult();
+```
+
+**Hybrid Flow:**
+
+1. QueryDSL `JPAQueryFactory` digunakan untuk count total records dan fetch IDs berdasarkan predicates
+2. IDs yang diperoleh digunakan untuk fetch full entities via `em.find()`
+3. Blaze-Persistence `EntityViewManager` digunakan untuk project entity ke DTO (EmployeeView, DepartmentView, dst)
+
+**Refactored Services:**
+
+- `EmployeeService` - QueryDSL predicates untuk search/filter
+- `DepartmentService` - QueryDSL predicates untuk search/filter
+- `PositionService` - QueryDSL predicates untuk search/filter
+- `WebhookService` - QueryDSL predicates untuk search/filter
+- `AuditLogService` - QueryDSL predicates untuk search/filter
+- `DashboardService` - Tetap menggunakan raw JPQL (aggregate queries)
+
 ---
 
 ## Role & Access Control
 
-| Endpoint                | Method | ADMIN | HR  | MANAGER |
-|-------------------------|--------|:-----:|:---:|:-------:|
-| `/api/auth/login`       | POST   |  O    |  O  |    O    |
-| `/api/auth/me`          | GET    |  O    |  O  |    O    |
-| `/api/departments`      | GET    |  O    |  O  |    O    |
-| `/api/departments/{id}` | GET    |  O    |  O  |    O    |
-| `/api/departments`      | POST   |  O    |  O  |    -    |
-| `/api/departments/{id}` | PUT    |  O    |  O  |    O    |
-| `/api/departments/{id}` | DELETE |  O    |  -  |    -    |
-| `/api/positions`        | GET    |  O    |  O  |    O    |
-| `/api/positions/{id}`   | GET    |  O    |  O  |    O    |
-| `/api/positions`        | POST   |  O    |  O  |    -    |
-| `/api/positions/{id}`   | PUT    |  O    |  O  |    O    |
-| `/api/positions/{id}`   | DELETE |  O    |  -  |    -    |
-| `/api/employees`        | GET    |  O    |  O  |    O    |
-| `/api/employees/{id}`   | GET    |  O    |  O  |    O    |
-| `/api/employees`        | POST   |  O    |  O  |    -    |
-| `/api/employees/{id}`   | PUT    |  O    |  O  |    O    |
-| `/api/employees/{id}`   | DELETE |  O    |  -  |    -    |
-| `/api/files/upload`     | POST   |  O    |  O  |    -    |
-| `/api/files/{filename}` | DELETE |  O    |  -  |    -    |
+| Endpoint                    | Method | ADMIN | HR  | MANAGER |
+|-----------------------------|--------|:-----:|:---:|:-------:|
+| `/api/auth/login`           | POST   |  O    |  O  |    O    |
+| `/api/auth/me`              | GET    |  O    |  O  |    O    |
+| `/api/auth/logout`          | POST   |  O    |  O  |    O    |
+| `/api/auth/change-password` | POST   |  O    |  O  |    O    |
+| `/api/auth/refresh`         | POST   |  O    |  O  |    O    |
+| `/api/departments`          | GET    |  O    |  O  |    O    |
+| `/api/departments/{id}`     | GET    |  O    |  O  |    O    |
+| `/api/departments`          | POST   |  O    |  O  |    -    |
+| `/api/departments/{id}`     | PUT    |  O    |  O  |    O    |
+| `/api/departments/{id}`     | DELETE |  O    |  -  |    -    |
+| `/api/positions`            | GET    |  O    |  O  |    O    |
+| `/api/positions/{id}`       | GET    |  O    |  O  |    O    |
+| `/api/positions`            | POST   |  O    |  O  |    -    |
+| `/api/positions/{id}`       | PUT    |  O    |  O  |    O    |
+| `/api/positions/{id}`       | DELETE |  O    |  -  |    -    |
+| `/api/employees`            | GET    |  O    |  O  |    O    |
+| `/api/employees/{id}`       | GET    |  O    |  O  |    O    |
+| `/api/employees`            | POST   |  O    |  O  |    -    |
+| `/api/employees/{id}`       | PUT    |  O    |  O  |    O    |
+| `/api/employees/{id}`       | DELETE |  O    |  -  |    -    |
+| `/api/files/upload`         | POST   |  O    |  O  |    -    |
+| `/api/files/{filename}`     | DELETE |  O    |  -  |    -    |
+| `/api/audit-logs`           | GET    |  O    |  -  |    -    |
+| `/api/export/excel`         | GET    |  O    |  O  |    O    |
+| `/api/export/pdf`           | GET    |  O    |  O  |    O    |
+| `/api/export/import`        | POST   |  O    |  O  |    -    |
+| `/api/dashboard/stats`      | GET    |  O    |  O  |    O    |
+| `/api/dashboard/hiring-trend` | GET  |  O    |  O  |    O    |
+| `/api/webhooks`             | POST   |  O    |  -  |    -    |
+| `/api/webhooks`             | GET    |  O    |  -  |    -    |
+| `/api/webhooks/{id}`        | GET    |  O    |  -  |    -    |
+| `/api/webhooks/{id}`        | PUT    |  O    |  -  |    -    |
+| `/api/webhooks/{id}`        | DELETE |  O    |  -  |    -    |
+| `/api/webhooks/logs`        | GET    |  O    |  -  |    -    |
+| `/actuator/health`          | GET    |  O    |  O  |    O    |
+| `/actuator/info`            | GET    |  O    |  -  |    -    |
+| `/actuator/metrics`         | GET    |  O    |  -  |    -    |
 
 ---
 
 ## Database Schema
 
-```
+Dikelola oleh Flyway migration (`V1__init_schema.sql`, `V2__add_webhook_tables.sql`).
+
+```sql
+-- Sequences untuk code generation (concurrency-safe)
+CREATE SEQUENCE emp_code_seq START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE dept_code_seq START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE pos_code_seq START WITH 1 INCREMENT BY 1;
+
+users
+├── id              BIGINT (PK, auto increment)
+├── username        VARCHAR(50, unique)
+├── password        VARCHAR(255) -- BCrypt hashed
+├── role            VARCHAR (ADMIN/HR/MANAGER)
+├── full_name       VARCHAR(100)
+├── is_active       BOOLEAN
+├── created_at      TIMESTAMP
+└── updated_at      TIMESTAMP
+
 departments
 ├── id              BIGINT (PK, auto increment)
 ├── department_code VARCHAR(50, unique)
@@ -531,6 +966,42 @@ employees
 ├── photo_url       VARCHAR(255)
 ├── created_at      TIMESTAMP
 └── updated_at      TIMESTAMP
+
+audit_logs
+├── id              BIGINT (PK, auto increment)
+├── entity_type     VARCHAR(50)
+├── entity_id       BIGINT
+├── action          VARCHAR(50) -- CREATE, UPDATE, DELETE
+├── old_values      TEXT (JSON)
+├── new_values      TEXT (JSON)
+├── performed_by    VARCHAR(50)
+├── performed_at    TIMESTAMP
+```
+
+### V2: Webhook Tables (`V2__add_webhook_tables.sql`)
+
+```sql
+webhook_subscriptions
+├── id              BIGINT (PK, auto increment)
+├── url             VARCHAR(500)
+├── events          TEXT (JSON array)
+├── secret          VARCHAR(255)
+├── description     VARCHAR(255)
+├── is_active       BOOLEAN
+├── created_at      TIMESTAMP
+└── updated_at      TIMESTAMP
+
+webhook_logs
+├── id              BIGINT (PK, auto increment)
+├── subscription_id BIGINT (FK → webhook_subscriptions.id)
+├── event           VARCHAR(50)
+├── payload         TEXT (JSON)
+├── status          VARCHAR(20) -- SUCCESS, FAILED
+├── response_code   INT
+├── response_body   TEXT
+├── error_message   TEXT
+├── attempt_at      TIMESTAMP
+└── created_at      TIMESTAMP
 ```
 
 ---
@@ -565,6 +1036,20 @@ Error response:
 
 **EmployeeStatus:** `ACTIVE`, `INACTIVE`, `RESIGNED`
 
+**WebhookEvent:** `employee.created`, `employee.updated`, `employee.deleted`, `department.created`, `department.updated`, `department.deleted`, `position.created`, `position.updated`, `position.deleted`
+
+**WebhookDeliveryStatus:** `SUCCESS`, `FAILED`
+
+---
+
+## Custom Validators
+
+| Validator              | Field           | Keterangan                                  |
+|------------------------|-----------------|---------------------------------------------|
+| `@UniqueEmail`         | email           | Memastikan email unik pada tabel employees   |
+| `@ExistingDepartment`  | departmentId    | Memastikan department dengan ID tersebut ada  |
+| `@ExistingPosition`    | positionId      | Memastikan position dengan ID tersebut ada    |
+
 ---
 
 ## Changelog
@@ -575,6 +1060,9 @@ Error response:
 | 2026-08-17    | 1.1   | Department module: CRUD, relasi ke Employee, seed    |
 | 2026-08-18    | 1.2   | File Upload: foto profil employee, local storage     |
 | 2026-08-18    | 1.3   | Position module: CRUD, relasi ke Department & Employee|
+| 2026-08-19    | 2.0   | Flyway migrations, Custom Validators, Logout, Change Password, Audit Logging, Export/Import (Excel/PDF), Dashboard |
+| 2026-08-20    | 3.0   | Webhook module, Redis token blacklist, Spring Actuator |
+| 2026-08-20    | 3.1   | QueryDSL integration (OpenFeign fork v7.3.0), hybrid Blaze approach |
 
 ---
 
@@ -587,8 +1075,12 @@ Error response:
 | 3 | Department CRUD        |   O    | Relasi ManyToOne ke Employee, seed data       |
 | 4 | File Upload            |   O    | Upload foto employee, local storage           |
 | 5 | Position               |   O    | Relasi ManyToOne ke Department & Employee     |
-| 6 | Audit Log              |   -    | Track siapa yang akses/ubah data              |
-| 7 | Export/Import Excel    |   -    | Export data ke Excel                          |
-| 8 | Export/Import PDF      |   -    | Export laporan ke PDF                         |
-| 9 | Notification           |   -    | Email notification saat event tertentu        |
-|10 | Dashboard/Reporting    |   -    | Statistik & laporan karyawan                  |
+| 6 | Audit Log              |   O    | Track siapa yang akses/ubah data              |
+| 7 | Export/Import Excel    |   O    | Export data ke Excel, import dari Excel       |
+| 8 | Export/Import PDF      |   O    | Export laporan ke PDF (OpenPDF)               |
+| 9 | Webhook               |   O    | Event-driven webhook notifications            |
+|10 | Redis Token Blacklist |   O    | Persistent token blacklist (Redis-backed)     |
+|11 | Spring Actuator       |   O    | Health check, info, metrics endpoints         |
+|12 | QueryDSL Integration  |   O    | Type-safe queries with hybrid Blaze approach  |
+|13 | Notification           |   -    | Email notification saat event tertentu        |
+|14 | Dashboard/Reporting    |   O    | Statistik & hiring trend karyawan             |

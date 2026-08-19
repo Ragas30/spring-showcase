@@ -4,13 +4,15 @@
 
 Project ini adalah Employee Management System (EMS) yang dibangun menggunakan:
 
-* Java 24
-* Spring Boot 4.x
+* Java 21
+* Spring Boot 3.5.3
 * Spring Security
 * JWT Authentication
 * Blaze Persistence
 * Blaze Entity View
-* MySQL
+* QueryDSL (OpenFeign fork v7.3.0)
+* PostgreSQL
+* Flyway
 * Swagger / OpenAPI
 * Maven
 
@@ -45,6 +47,7 @@ Contoh dependency service:
 private final EntityManager em;
 private final CriteriaBuilderFactory cbf;
 private final EntityViewManager evm;
+private final JPAQueryFactory queryFactory;
 ```
 
 ---
@@ -56,6 +59,8 @@ com.spring.review
 
 ├── bean
 │   ├── auth
+│   ├── audit
+│   ├── dashboard
 │   └── employee
 │
 ├── common
@@ -68,6 +73,8 @@ com.spring.review
 │   ├── SecurityConfig
 │   ├── OpenApiConfig
 │   ├── BlazeConfig
+│   ├── Auditable
+│   ├── AuditAspect
 │   └── DataInitializer
 │
 ├── controller
@@ -87,17 +94,35 @@ com.spring.review
 
 # Database Rules
 
-## Hibernate
+## Flyway Migration
+
+Project menggunakan Flyway untuk schema migration.
 
 Gunakan:
 
 ```properties
-spring.jpa.hibernate.ddl-auto=update
+spring.jpa.hibernate.ddl-auto=none
+spring.flyway.enabled=true
+spring.flyway.baselineOnMigrate=true
 ```
 
-Tabel dibuat otomatis oleh Hibernate.
+Schema dikelola oleh migration file:
 
-Tidak menggunakan migration tool saat ini.
+```text
+V1__init_schema.sql
+```
+
+## DB Sequences
+
+Gunakan database sequences untuk code generation:
+
+```sql
+emp_code_seq
+dept_code_seq
+pos_code_seq
+```
+
+Tidak menggunakan `spring.jpa.hibernate.ddl-auto=update`.
 
 ---
 
@@ -233,7 +258,7 @@ Gunakan Bean Validation:
 ```java
 @NotBlank
 @NotNull
-@Email
+@email
 ```
 
 dan tangani dengan:
@@ -250,6 +275,143 @@ Response:
   "message": "..."
 }
 ```
+
+---
+
+# Custom Validators Rules
+
+## @UniqueEmail
+
+Validasi email unik via EntityManager query.
+
+```java
+@UniqueEmail
+private String email;
+```
+
+Validasi dilakukan dengan query ke database menggunakan `EntityManager` untuk memastikan email belum terdaftar.
+
+## @ExistingDepartment
+
+Validasi departmentId exists.
+
+```java
+@ExistingDepartment
+private Long departmentId;
+```
+
+Validasi dilakukan dengan query ke database menggunakan `EntityManager` untuk memastikan department dengan ID tersebut ada.
+
+## @ExistingPosition
+
+Validasi positionId exists.
+
+```java
+@ExistingPosition
+private Long positionId;
+```
+
+Validasi dilakukan dengan query ke database menggunakan `EntityManager` untuk memastikan position dengan ID tersebut ada.
+
+## Implementation Pattern
+
+Semua custom validator menggunakan:
+
+```java
+@PersistenceContext
+private EntityManager em;
+```
+
+untuk melakukan validasi database.
+
+---
+
+# Audit Logging Rules
+
+## Auditable Annotation
+
+Gunakan annotation pada service method:
+
+```java
+@Auditable(action = "CREATE", entityType = "Employee")
+public EmployeeResponse createEmployee(CreateEmployeeRequest request) {
+    // ...
+}
+```
+
+## AOP Implementation
+
+`AuditAspect` merekam audit log menggunakan AOP (Aspect-Oriented Programming).
+
+Audit log tercatat secara otomatis untuk setiap method yang ditandai `@Auditable`.
+
+## Access Control
+
+Hanya role `ADMIN` yang dapat mengakses audit logs.
+
+---
+
+# Export/Import Rules
+
+## Export Excel
+
+Menggunakan Apache POI:
+
+```java
+XSSFWorkbook workbook = new XSSFWorkbook();
+XSSFSheet sheet = workbook.createSheet("Employees");
+```
+
+## Export PDF
+
+Menggunakan OpenPDF:
+
+```java
+PdfPTable table = new PdfPTable(headers.length);
+PdfPCell cell = new PdfPCell(new Phrase("Value"));
+```
+
+Jangan menggunakan:
+
+```java
+com.lowagie.text.Table
+com.lowagie.text.Cell
+```
+
+Karena deprecated di OpenPDF 2.x.
+
+## Import
+
+Menggunakan MultipartFile dengan Swagger annotation:
+
+```java
+@Parameter(schema = @Schema(type = "string", format = "binary"))
+MultipartFile file
+```
+
+---
+
+# Code Generation Rules
+
+## DB Sequences
+
+Gunakan database sequences untuk code generation:
+
+```sql
+SELECT nextval('emp_code_seq');
+```
+
+Ini menjamin concurrency safety karena sequence di-generate oleh database.
+
+## Jangan Gunakan MAX()
+
+```java
+// JANGAN
+Long maxCode = em.createQuery("SELECT MAX(e.id) FROM EmployeeEntity e", Long.class)
+        .getSingleResult();
+```
+
+Karena rawan race condition.
 
 ---
 
@@ -370,7 +532,117 @@ evm.applySetting(
 .getSingleResult();
 ```
 
-untuk mapping Entity → View.
+untuk mapping Entity -> View.
+
+---
+
+# QueryDSL Rules
+
+## OpenFeign Fork
+
+Project menggunakan QueryDSL OpenFeign fork v7.3.0.
+
+Dependency:
+
+```xml
+<dependency>
+    <groupId>com.querydsl</groupId>
+    <artifactId>querydsl-jpa</artifactId>
+    <version>7.3.0</version>
+</dependency>
+<dependency>
+    <groupId>com.querydsl</groupId>
+    <artifactId>querydsl-apt</artifactId>
+    <version>7.3.0</version>
+    <scope>provided</scope>
+</dependency>
+```
+
+## Q-Classes
+
+Q-classes di-generate otomatis oleh annotation processor dari entity:
+
+```java
+QEmployeeEntity qEmployee = QEmployeeEntity.employeeEntity;
+QDepartmentEntity qDepartment = QDepartmentEntity.departmentEntity;
+QPositionEntity qPosition = QPositionEntity.positionEntity;
+```
+
+## BooleanExpression
+
+Gunakan `BooleanExpression` bukan `Predicate` sebagai tipe variabel:
+
+```java
+BooleanExpression predicate = Expressions.TRUE;
+predicate = predicate.and(qEmployee.fullName.containsIgnoreCase(keyword));
+```
+
+`Expressions.TRUE` digunakan sebagai default agar predicates bisa di-chain dengan method `and()`.
+
+## JPAQueryFactory
+
+Gunakan `JPAQueryFactory` untuk count queries dan ID fetching:
+
+```java
+Long count = queryFactory.select(qEmployee.count())
+    .from(qEmployee)
+    .where(predicate)
+    .fetchOne();
+```
+
+## Hybrid Approach
+
+1. QueryDSL untuk query building (predicates, count, ID fetching)
+2. Blaze-Persistence Entity Views untuk DTO projection
+
+```java
+// 1. QueryDSL: fetch IDs
+List<Long> ids = queryFactory.select(qEmployee.id)
+    .from(qEmployee)
+    .where(predicate)
+    .fetch();
+
+// 2. Blaze: project to view
+evm.applySetting(
+    EntityViewSetting.create(EmployeeView.class),
+    cbf.create(em, EmployeeEntity.class)
+        .where("id").in(ids)
+).getResultList();
+```
+
+## Dashboard Exception
+
+DashboardService tetap menggunakan raw JPQL untuk aggregate queries (statistik, hiring trend).
+
+---
+
+# Test Rules
+
+## Unit Testing Framework
+
+Menggunakan Mockito:
+
+```java
+@ExtendWith(MockitoExtension.class)
+```
+
+## Unit Test Classes
+
+```text
+JwtServiceTest
+GlobalExceptionHandlerTest
+TokenBlacklistServiceTest
+```
+
+## Jangan Gunakan
+
+```java
+@SpringBootTest
+```
+
+untuk unit tests.
+
+Unit tests tidak memerlukan full Spring context. Gunakan `@ExtendWith(MockitoExtension.class)` dengan `@Mock` dan `@InjectMocks`.
 
 ---
 
@@ -472,8 +744,9 @@ Saat membuat contoh kode:
 7. Gunakan ErrorCode.
 8. Gunakan GlobalExceptionHandler.
 9. Gunakan Bean Validation.
-10. Jangan mengasumsikan API library sama antar versi.
-11. Verifikasi contoh terhadap dependency yang digunakan project.
+10. Gunakan QueryDSL (BooleanExpression) untuk predicates.
+11. Jangan mengasumsikan API library sama antar versi.
+12. Verifikasi contoh terhadap dependency yang digunakan project.
 
 ---
 
@@ -491,6 +764,11 @@ Fitur:
 
 * JWT Authentication
 * Login Endpoint
+* Refresh Token
+* Logout Endpoint
+* Change Password
+* Role-based Authorities (RBAC)
+* CORS Configuration
 * Security Configuration
 * Swagger Authorization
 
@@ -512,13 +790,14 @@ Fitur:
 * Update Employee
 * Delete Employee
 * Validation
+* Search
 * Entity View
 * Global Exception Handling
 * RESIGNED status
 
 ---
 
-## Auth Enhancements
+## Department Module
 
 Status:
 
@@ -528,25 +807,139 @@ DONE
 
 Fitur:
 
-* Refresh Token
-* Role-based Authorities (RBAC)
-* CORS Configuration
-* User isActive check
-* User email field
-* Role in JWT claims
-* Role in LoginResponse
+* CRUD Department
+* Validation
+* Entity View
 
 ---
 
-# Next Target
+## Position Module
 
-Implementasi Department Module:
+Status:
 
 ```text
-DepartmentEntity
-DepartmentView
-DepartmentService
-DepartmentController
+DONE
 ```
 
-sebelum melanjutkan ke Position Module.
+Fitur:
+
+* CRUD Position
+* Validation
+* Entity View
+
+---
+
+## File Upload Module
+
+Status:
+
+```text
+DONE
+```
+
+Fitur:
+
+* File upload endpoint
+* MultipartFile handling
+
+---
+
+## Audit Logging Module
+
+Status:
+
+```text
+DONE
+```
+
+Fitur:
+
+* AOP-based audit logging
+* @Auditable annotation
+* AuditAspect
+* ADMIN-only access
+
+---
+
+## Export/Import Module
+
+Status:
+
+```text
+DONE
+```
+
+Fitur:
+
+* Export to Excel (Apache POI)
+* Export to PDF (OpenPDF)
+* Import from file
+
+---
+
+## Dashboard Module
+
+Status:
+
+```text
+DONE
+```
+
+Fitur:
+
+* Statistics endpoint
+* Hiring Trend
+
+---
+
+## Custom Validators
+
+Status:
+
+```text
+DONE
+```
+
+Fitur:
+
+* @UniqueEmail
+* @ExistingDepartment
+* @ExistingPosition
+
+---
+
+## Unit Tests
+
+Status:
+
+```text
+DONE
+```
+
+Fitur:
+
+* 16 tests passing
+* JwtServiceTest
+* GlobalExceptionHandlerTest
+* TokenBlacklistServiceTest
+
+---
+
+## QueryDSL Integration
+
+Status:
+
+```text
+DONE
+```
+
+Fitur:
+
+* QueryDSL OpenFeign fork v7.3.0
+* Q-class auto-generation
+* BooleanExpression with Expressions.TRUE
+* JPAQueryFactory for count/ID queries
+* Hybrid: QueryDSL + Blaze Entity Views
+* Refactored: EmployeeService, DepartmentService, PositionService, WebhookService, AuditLogService
+
+---

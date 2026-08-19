@@ -125,6 +125,22 @@ public class SecurityConfig {
                         )
                         .hasRole("ADMIN")
 
+                        .requestMatchers(
+                                "/api/audit-logs/**",
+                                "/api/webhooks/**"
+                        )
+                        .hasRole("ADMIN")
+
+                        .requestMatchers(
+                                "/actuator/health"
+                        )
+                        .permitAll()
+
+                        .requestMatchers(
+                                "/actuator/**"
+                        )
+                        .hasRole("ADMIN")
+
                         .anyRequest()
                         .authenticated()
                 )

@@ -235,37 +235,12 @@ public class DataInitializer implements CommandLineRunner {
 
     private String generateDepartmentCode() {
 
-        List<String> results = entityManager.createQuery(
-                """
-                SELECT d.departmentCode
-                FROM DepartmentEntity d
-                ORDER BY d.departmentCode DESC
-                """,
-                String.class
-        ).setMaxResults(1).getResultList();
+        Long seq = entityManager.createQuery(
+                "SELECT nextval('dept_code_seq')",
+                Long.class
+        ).getSingleResult();
 
-        String maxCode = results.isEmpty()
-                ? null
-                : results.getFirst();
-
-        int next = 1;
-
-        if (maxCode != null
-                && maxCode.startsWith("DEPT")) {
-
-            try {
-
-                next = Integer.parseInt(
-                        maxCode.substring(4)
-                ) + 1;
-
-            } catch (NumberFormatException e) {
-
-                next = 1;
-            }
-        }
-
-        return String.format("DEPT%03d", next);
+        return String.format("DEPT%03d", seq);
     }
 
     private DepartmentEntity findDepartmentByName(
@@ -335,37 +310,12 @@ public class DataInitializer implements CommandLineRunner {
 
     private String generatePositionCode() {
 
-        List<String> results = entityManager.createQuery(
-                """
-                SELECT p.positionCode
-                FROM PositionEntity p
-                ORDER BY p.positionCode DESC
-                """,
-                String.class
-        ).setMaxResults(1).getResultList();
+        Long seq = entityManager.createQuery(
+                "SELECT nextval('pos_code_seq')",
+                Long.class
+        ).getSingleResult();
 
-        String maxCode = results.isEmpty()
-                ? null
-                : results.getFirst();
-
-        int next = 1;
-
-        if (maxCode != null
-                && maxCode.startsWith("POS")) {
-
-            try {
-
-                next = Integer.parseInt(
-                        maxCode.substring(3)
-                ) + 1;
-
-            } catch (NumberFormatException e) {
-
-                next = 1;
-            }
-        }
-
-        return String.format("POS%03d", next);
+        return String.format("POS%03d", seq);
     }
 
     private PositionEntity findPositionByName(

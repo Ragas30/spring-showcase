@@ -1,5 +1,6 @@
 package com.spring.review.bean.position;
 
+import com.spring.review.validation.ExistingDepartment;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
@@ -11,6 +12,7 @@ public class UpdatePositionRequest {
 
     private String description;
 
+    @ExistingDepartment
     private Long departmentId;
 
     private Boolean isActive;

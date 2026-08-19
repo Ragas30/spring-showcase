@@ -258,7 +258,7 @@ users table otomatis dibuat
 Status:
 
 ```text
-⬜ TODO
+✓ DONE
 ```
 
 ---
@@ -284,7 +284,7 @@ role
 Status:
 
 ```text
-⬜ TODO
+✓ DONE
 ```
 
 ---
@@ -303,7 +303,7 @@ bean/auth
 Status:
 
 ```text
-⬜ TODO
+✓ DONE
 ```
 
 ---
@@ -327,7 +327,7 @@ PasswordEncoder
 Status:
 
 ```text
-⬜ TODO
+✓ DONE
 ```
 
 ---
@@ -347,7 +347,7 @@ Extract Username
 Status:
 
 ```text
-⬜ TODO
+✓ DONE
 ```
 
 ---
@@ -367,7 +367,7 @@ Validate User
 Status:
 
 ```text
-⬜ TODO
+✓ DONE
 ```
 
 ---
@@ -385,7 +385,7 @@ POST /api/auth/login
 Status:
 
 ```text
-⬜ TODO
+✓ DONE
 ```
 
 ---
@@ -404,7 +404,7 @@ Endpoint lain wajib JWT
 Status:
 
 ```text
-⬜ TODO
+✓ DONE
 ```
 
 ---
@@ -424,7 +424,7 @@ Buat EmployeeEntity.
 Status:
 
 ```text
-⬜ TODO
+✓ DONE
 ```
 
 ---
@@ -436,7 +436,7 @@ Buat EmployeeView.
 Status:
 
 ```text
-⬜ TODO
+✓ DONE
 ```
 
 ---
@@ -455,7 +455,7 @@ EmployeeSearchRequest
 Status:
 
 ```text
-⬜ TODO
+✓ DONE
 ```
 
 ---
@@ -474,7 +474,7 @@ ValidEmployeeCode
 Status:
 
 ```text
-⬜ TODO
+✓ DONE
 ```
 
 ---
@@ -496,7 +496,7 @@ List
 Status:
 
 ```text
-⬜ TODO
+✓ DONE
 ```
 
 ---
@@ -518,7 +518,7 @@ DELETE /api/employees/{id}
 Status:
 
 ```text
-⬜ TODO
+✓ DONE
 ```
 
 ---
@@ -529,13 +529,31 @@ Status:
 
 DepartmentEntity
 
+Status:
+
+```text
+✓ DONE
+```
+
 ## STEP 24
 
 DepartmentView
 
+Status:
+
+```text
+✓ DONE
+```
+
 ## STEP 25
 
 DepartmentService
+
+Status:
+
+```text
+✓ DONE
+```
 
 ## STEP 26
 
@@ -544,7 +562,7 @@ DepartmentController
 Status:
 
 ```text
-⬜ TODO
+✓ DONE
 ```
 
 ---
@@ -555,13 +573,31 @@ Status:
 
 PositionEntity
 
+Status:
+
+```text
+✓ DONE
+```
+
 ## STEP 28
 
 PositionView
 
+Status:
+
+```text
+✓ DONE
+```
+
 ## STEP 29
 
 PositionService
+
+Status:
+
+```text
+✓ DONE
+```
 
 ## STEP 30
 
@@ -570,7 +606,7 @@ PositionController
 Status:
 
 ```text
-⬜ TODO
+✓ DONE
 ```
 
 ---
@@ -581,13 +617,31 @@ Status:
 
 Swagger Documentation
 
+Status:
+
+```text
+✓ DONE
+```
+
 ## STEP 32
 
 Pagination Standardization
 
+Status:
+
+```text
+✓ DONE
+```
+
 ## STEP 33
 
 Sorting Standardization
+
+Status:
+
+```text
+✓ DONE
+```
 
 ## STEP 34
 
@@ -600,6 +654,12 @@ createdBy
 updatedBy
 ```
 
+Status:
+
+```text
+✓ DONE
+```
+
 ## STEP 35
 
 Testing
@@ -610,15 +670,600 @@ Controller Test
 Security Test
 ```
 
+Status:
+
+```text
+✓ DONE
+```
+
+---
+
+# PHASE 7 — INFRASTRUCTURE
+
+Tujuan:
+
+Setup Flyway migrations, H2 test database, dan DB sequences.
+
+---
+
+## STEP 36
+
+Setup Flyway migration.
+
+Tujuan:
+
+```text
+Database versioning dengan Flyway
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+## STEP 37
+
+Setup H2 test database.
+
+Tujuan:
+
+```text
+In-memory database untuk testing
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+## STEP 38
+
+Setup DB Sequences.
+
+Tujuan:
+
+```text
+Sequence-based ID generation
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+---
+
+# PHASE 8 — CUSTOM VALIDATORS
+
+Tujuan:
+
+Membuat custom Bean Validation annotations.
+
+---
+
+## STEP 39
+
+@UniqueEmail
+
+Tujuan:
+
+```text
+Validasi email unik di database
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+## STEP 40
+
+@ExistingDepartment
+
+Tujuan:
+
+```text
+Validasi department ID exists di database
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+## STEP 41
+
+@ExistingPosition
+
+Tujuan:
+
+```text
+Validasi position ID exists di database
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+---
+
+# PHASE 9 — AUTH ENHANCEMENTS
+
+Tujuan:
+
+Menambahkan fitur Logout dan Change Password.
+
+---
+
+## STEP 42
+
+Logout
+
+Tujuan:
+
+```text
+Blacklist JWT token saat logout
+Endpoint: POST /api/auth/logout
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+## STEP 43
+
+Change Password
+
+Tujuan:
+
+```text
+Ubah password user yang sedang login
+Endpoint: POST /api/auth/change-password
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+---
+
+# PHASE 10 — AUDIT LOGGING
+
+Tujuan:
+
+Mencatat semua aktivitas menggunakan AOP.
+
+---
+
+## STEP 44
+
+AuditLog Entity
+
+Tujuan:
+
+```text
+Entity untuk menyimpan log aktivitas
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+## STEP 45
+
+AOP Audit Aspect
+
+Tujuan:
+
+```text
+Automatic logging setiap ada perubahan data
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+## STEP 46
+
+AuditLog Controller
+
+Tujuan:
+
+```text
+Endpoint untuk melihat audit logs
+Endpoint: GET /api/audit-logs
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+---
+
+# PHASE 11 — EXPORT/IMPORT
+
+Tujuan:
+
+Export dan Import data dalam format Excel dan PDF.
+
+---
+
+## STEP 47
+
+Excel Export
+
+Tujuan:
+
+```text
+Export data ke format Excel
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+## STEP 48
+
+Excel Import
+
+Tujuan:
+
+```text
+Import data dari file Excel
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+## STEP 49
+
+PDF Export
+
+Tujuan:
+
+```text
+Export data ke format PDF
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+---
+
+# PHASE 12 — DASHBOARD
+
+Tujuan:
+
+Menampilkan statistik dan hiring trend.
+
+---
+
+## STEP 50
+
+Dashboard Stats
+
+Tujuan:
+
+```text
+Endpoint untuk statistik umum
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+## STEP 51
+
+Hiring Trend
+
+Tujuan:
+
+```text
+Endpoint untuk trend data karyawan
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+---
+
+# PHASE 13 — UNIT TESTS
+
+Tujuan:
+
+Menulis unit test untuk komponen penting.
+
+---
+
+## STEP 52
+
+JwtServiceTest
+
+Tujuan:
+
+```text
+Test JWT generation, validation, dan extraction
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+## STEP 53
+
+GlobalExceptionHandlerTest
+
+Tujuan:
+
+```text
+Test exception handling untuk semua tipe exception
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+## STEP 54
+
+TokenBlacklistServiceTest
+
+Tujuan:
+
+```text
+Test blacklist token saat logout
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+---
+
+# PHASE 14 — WEBHOOK MODULE
+
+Tujuan:
+
+Membuat sistem webhook untuk notifikasi otomatis.
+
+---
+
+## STEP 55
+
+WebhookSubscription + WebhookLog Entities
+
+Tujuan:
+
+```text
+WebhookSubscription + WebhookLog entities + tables
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+## STEP 56
+
+WebhookService
+
+Tujuan:
+
+```text
+WebhookService (CRUD)
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+## STEP 57
+
+WebhookDeliveryService
+
+Tujuan:
+
+```text
+WebhookDeliveryService (async HTTP dispatch with HMAC-SHA256 signature)
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+## STEP 58
+
+WebhookController
+
+Tujuan:
+
+```text
+WebhookController (REST endpoints)
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+## STEP 59
+
+Integration with AuditAspect
+
+Tujuan:
+
+```text
+Auto-trigger webhook on CRUD via AuditAspect
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+---
+
+# PHASE 15 — REDIS TOKEN BLACKLIST
+
+Tujuan:
+
+Mengganti ConcurrentHashMap dengan Redis untuk token blacklist.
+
+---
+
+## STEP 60
+
+Redis Token Blacklist
+
+Tujuan:
+
+```text
+Replaced ConcurrentHashMap with Redis
+TTL: 168 hours (7 days)
+Tokens persist across restarts
+Prerequisite: Redis running on localhost:6379
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+---
+
+# PHASE 16 — SPRING ACTUATOR
+
+Tujuan:
+
+Menambahkan monitoring dan health check dengan Spring Actuator.
+
+---
+
+## STEP 61
+
+Spring Actuator Setup
+
+Tujuan:
+
+```text
+/actuator/health (public)
+/actuator/info, /actuator/metrics (ADMIN only)
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+---
+
+# PHASE 17 — QUERYDSL INTEGRATION
+
+Tujuan:
+
+Menambahkan QueryDSL untuk type-safe queries dengan pendekatan hybrid bersama Blaze-Persistence.
+
+---
+
+## STEP 62
+
+QueryDSL Setup
+
+Tujuan:
+
+```text
+Added querydsl-jpa and querydsl-apt (OpenFeign fork v7.3.0) to pom.xml
+Configured annotation processor for Q-class generation
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
+## STEP 63
+
+Service Refactoring
+
+Tujuan:
+
+```text
+Refactored EmployeeService, DepartmentService, PositionService, WebhookService, AuditLogService
+Hybrid approach: QueryDSL predicates for count/search + Blaze Entity Views for DTO projection
+DashboardService kept with raw JPQL (aggregate queries)
+```
+
+Status:
+
+```text
+✓ DONE
+```
+
 ---
 
 # Current Progress
 
 ```text
-[✓] Phase 1 Completed
-[ ] Phase 2 Authentication
-[ ] Phase 3 Employee
-[ ] Phase 4 Department
-[ ] Phase 5 Position
-[ ] Phase 6 Polishing
+[✓] Phase 1 Completed - Project Foundation
+[✓] Phase 2 Completed - Authentication
+[✓] Phase 3 Completed - Employee Module
+[✓] Phase 4 Completed - Department Module
+[✓] Phase 5 Completed - Position Module
+[✓] Phase 6 Completed - Polishing
+[✓] Phase 7 Completed - Infrastructure (Flyway, H2, DB Sequences)
+[✓] Phase 8 Completed - Custom Validators
+[✓] Phase 9 Completed - Auth Enhancements (Logout, Change Password)
+[✓] Phase 10 Completed - Audit Logging
+[✓] Phase 11 Completed - Export/Import (Excel, PDF)
+[✓] Phase 12 Completed - Dashboard
+[✓] Phase 13 Completed - Unit Tests
+[✓] Phase 14 Completed - Webhook Module
+[✓] Phase 15 Completed - Redis Token Blacklist
+[✓] Phase 16 Completed - Spring Actuator
+[✓] Phase 17 Completed - QueryDSL Integration
 ```

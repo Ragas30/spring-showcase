@@ -2,6 +2,8 @@ package com.spring.review.bean.employee;
 
 import com.spring.review.entity.EmployeeStatus;
 import com.spring.review.entity.Gender;
+import com.spring.review.validation.ExistingDepartment;
+import com.spring.review.validation.ExistingPosition;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -32,8 +34,10 @@ public class UpdateEmployeeRequest {
     @NotNull(message = "Status wajib diisi")
     private EmployeeStatus status;
 
+    @ExistingDepartment
     private Long departmentId;
 
+    @ExistingPosition
     private Long positionId;
 
     private String photoUrl;

@@ -1,8 +1,10 @@
 package com.spring.review.controller;
 
+import com.spring.review.bean.auth.ChangePasswordRequest;
 import com.spring.review.bean.auth.CurrentUserResponse;
 import com.spring.review.bean.auth.LoginRequest;
 import com.spring.review.bean.auth.LoginResponse;
+import com.spring.review.bean.auth.LogoutRequest;
 import com.spring.review.bean.auth.RefreshTokenRequest;
 import com.spring.review.common.ApiResponse;
 import com.spring.review.common.ErrorCode;
@@ -89,6 +91,39 @@ public class AuthController {
                 .code(ErrorCode.SUCCESS.name())
                 .message("Current User")
                 .data(response)
+                .build();
+    }
+
+    @Operation(summary = "Logout - blacklist token")
+    @PostMapping("/logout")
+    public ApiResponse<Void> logout(
+            @Valid @RequestBody LogoutRequest request
+    ) {
+
+        userAuthService.logout(request.getToken());
+
+        return ApiResponse.<Void>builder()
+                .code(ErrorCode.SUCCESS.name())
+                .message("Logout berhasil")
+                .build();
+    }
+
+    @Operation(summary = "Ganti password")
+    @PostMapping("/change-password")
+    public ApiResponse<Void> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request,
+            Authentication authentication
+    ) {
+
+        userAuthService.changePassword(
+                authentication.getName(),
+                request.getOldPassword(),
+                request.getNewPassword()
+        );
+
+        return ApiResponse.<Void>builder()
+                .code(ErrorCode.SUCCESS.name())
+                .message("Password berhasil diubah")
                 .build();
     }
 }

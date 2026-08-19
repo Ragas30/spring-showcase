@@ -1,5 +1,6 @@
 package com.spring.review.bean.position;
 
+import com.spring.review.validation.ExistingDepartment;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -13,6 +14,7 @@ public class CreatePositionRequest {
     private String description;
 
     @NotNull(message = "Department wajib diisi")
+    @ExistingDepartment
     private Long departmentId;
 
 }

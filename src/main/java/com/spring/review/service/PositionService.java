@@ -1,14 +1,17 @@
 package com.spring.review.service;
 
-import com.blazebit.persistence.CriteriaBuilder;
 import com.blazebit.persistence.CriteriaBuilderFactory;
 import com.blazebit.persistence.view.EntityViewManager;
 import com.blazebit.persistence.view.EntityViewSetting;
+import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.core.types.dsl.Expressions;
+import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.spring.review.bean.position.CreatePositionRequest;
 import com.spring.review.bean.position.PositionSearchRequest;
 import com.spring.review.bean.position.UpdatePositionRequest;
 import com.spring.review.common.ErrorCode;
 import com.spring.review.common.PageResponse;
+import com.spring.review.config.Auditable;
 import com.spring.review.entity.DepartmentEntity;
 import com.spring.review.entity.PositionEntity;
 import com.spring.review.entityView.PositionView;
@@ -21,6 +24,8 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static com.spring.review.entity.QPositionEntity.positionEntity;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -32,253 +37,127 @@ public class PositionService {
 
     private final EntityViewManager evm;
 
+    private final JPAQueryFactory jpaQueryFactory;
+
     private boolean existsByName(String name) {
-
-        Long count = cbf.create(em, Long.class)
-                .from(PositionEntity.class)
-                .select("COUNT(id)")
-                .where("name")
-                .eq(name)
-                .getSingleResult();
-
+        Long count = jpaQueryFactory
+                .select(positionEntity.count())
+                .from(positionEntity)
+                .where(positionEntity.name.eq(name))
+                .fetchOne();
         return count > 0;
     }
 
-    private boolean existsByNameExceptId(
-            String name,
-            Long id
-    ) {
-
-        Long count = cbf.create(em, Long.class)
-                .from(PositionEntity.class)
-                .select("COUNT(id)")
-                .where("name")
-                .eq(name)
-                .where("id")
-                .notEq(id)
-                .getSingleResult();
-
+    private boolean existsByNameExceptId(String name, Long id) {
+        Long count = jpaQueryFactory
+                .select(positionEntity.count())
+                .from(positionEntity)
+                .where(positionEntity.name.eq(name)
+                        .and(positionEntity.id.ne(id)))
+                .fetchOne();
         return count > 0;
     }
 
     private String generatePositionCode() {
-
-        String maxCode = cbf.create(
-                        em,
-                        String.class
-                )
-                .from(PositionEntity.class)
-                .select("MAX(positionCode)")
-                .getSingleResult();
-
-        int next = 1;
-
-        if (maxCode != null
-                && maxCode.startsWith("POS")) {
-
-            try {
-
-                next = Integer.parseInt(
-                        maxCode.substring(3)
-                ) + 1;
-
-            } catch (NumberFormatException e) {
-
-                next = 1;
-            }
-        }
-
-        return String.format(
-                "POS%03d",
-                next
-        );
+        Long seq = em.createQuery(
+                "SELECT nextval('pos_code_seq')", Long.class
+        ).getSingleResult();
+        return String.format("POS%03d", seq);
     }
 
-    private PositionEntity findPositionById(
-            Long id
-    ) {
-
-        PositionEntity position =
-                em.find(
-                        PositionEntity.class,
-                        id
-                );
-
+    private PositionEntity findPositionById(Long id) {
+        PositionEntity position = em.find(PositionEntity.class, id);
         if (position == null) {
-
-            throw new BusinessException(
-                    ErrorCode.POSITION_NOT_FOUND,
-                    "Position not found"
-            );
+            throw new BusinessException(ErrorCode.POSITION_NOT_FOUND, "Position not found");
         }
-
         return position;
     }
 
-    private DepartmentEntity findDepartmentById(
-            Long id
-    ) {
-
-        if (id == null) {
-            return null;
-        }
-
-        DepartmentEntity department =
-                em.find(
-                        DepartmentEntity.class,
-                        id
-                );
-
+    private DepartmentEntity findDepartmentById(Long id) {
+        if (id == null) return null;
+        DepartmentEntity department = em.find(DepartmentEntity.class, id);
         if (department == null) {
-
-            throw new BusinessException(
-                    ErrorCode.DEPARTMENT_NOT_FOUND,
-                    "Department not found"
-            );
+            throw new BusinessException(ErrorCode.DEPARTMENT_NOT_FOUND, "Department not found");
         }
-
         return department;
     }
 
     private PositionView toView(Long id) {
-
         return evm.applySetting(
-                        EntityViewSetting.create(
-                                PositionView.class
-                        ),
-                        cbf.create(
-                                        em,
-                                        PositionEntity.class
-                                )
-                                .where("id")
-                                .eq(id)
+                        EntityViewSetting.create(PositionView.class),
+                        cbf.create(em, PositionEntity.class).where("id").eq(id)
                 )
                 .getSingleResult();
     }
 
-    private void applyFilters(
-            CriteriaBuilder<?> cb,
-            PositionSearchRequest request
-    ) {
+    private BooleanExpression buildFilters(PositionSearchRequest request) {
+        BooleanExpression predicate = Expressions.TRUE;
 
-        if (request.getName() != null
-                && !request.getName().isBlank()) {
-            cb.where("name")
-                    .like()
-                    .value("%" + request.getName() + "%")
-                    .noEscape();
+        if (request.getName() != null && !request.getName().isBlank()) {
+            predicate = predicate.and(positionEntity.name.contains(request.getName()));
         }
-        if (request.getPositionCode() != null
-                && !request.getPositionCode().isBlank()) {
-            cb.where("positionCode")
-                    .like()
-                    .value("%" + request.getPositionCode() + "%")
-                    .noEscape();
+        if (request.getPositionCode() != null && !request.getPositionCode().isBlank()) {
+            predicate = predicate.and(positionEntity.positionCode.contains(request.getPositionCode()));
         }
         if (request.getDepartmentId() != null) {
-            cb.where("department.id")
-                    .eq(request.getDepartmentId());
+            predicate = predicate.and(positionEntity.department.id.eq(request.getDepartmentId()));
         }
         if (request.getIsActive() != null) {
-            cb.where("isActive")
-                    .eq(request.getIsActive());
+            predicate = predicate.and(positionEntity.isActive.eq(request.getIsActive()));
         }
+
+        return predicate;
     }
 
-    public PositionView createPosition(
-            CreatePositionRequest request
-    ) {
-
+    @Auditable(action = "CREATE", entityType = "Position")
+    public PositionView createPosition(CreatePositionRequest request) {
         if (existsByName(request.getName())) {
-
-            throw new BusinessException(
-                    ErrorCode.CONFLICT,
-                    "Position name already exists"
-            );
+            throw new BusinessException(ErrorCode.CONFLICT, "Position name already exists");
         }
 
-        PositionEntity position =
-                PositionEntity.builder()
-                        .positionCode(
-                                generatePositionCode()
-                        )
-                        .name(
-                                request.getName()
-                        )
-                        .description(
-                                request.getDescription()
-                        )
-                        .department(
-                                findDepartmentById(
-                                        request.getDepartmentId()
-                                )
-                        )
-                        .isActive(true)
-                        .createdAt(
-                                LocalDateTime.now()
-                        )
-                        .updatedAt(
-                                LocalDateTime.now()
-                        )
-                        .build();
+        PositionEntity position = PositionEntity.builder()
+                .positionCode(generatePositionCode())
+                .name(request.getName())
+                .description(request.getDescription())
+                .department(findDepartmentById(request.getDepartmentId()))
+                .isActive(true)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
 
         em.persist(position);
         em.flush();
-
         return toView(position.getId());
     }
 
-    public PositionView getPositionById(
-            Long id
-    ) {
-
-        PositionEntity position =
-                findPositionById(id);
-
-        return toView(position.getId());
+    public PositionView getPositionById(Long id) {
+        findPositionById(id);
+        return toView(id);
     }
 
-    public PageResponse<PositionView> getPositions(
-            PositionSearchRequest request
-    ) {
+    public PageResponse<PositionView> getPositions(PositionSearchRequest request) {
+        BooleanExpression predicate = buildFilters(request);
 
-        var countCb = cbf.create(
-                        em,
-                        Long.class
-                )
-                .from(PositionEntity.class)
-                .select("COUNT(id)");
-        applyFilters(countCb, request);
-        Long totalElements = countCb.getSingleResult();
+        Long totalElements = jpaQueryFactory
+                .select(positionEntity.count())
+                .from(positionEntity)
+                .where(predicate)
+                .fetchOne();
 
-        var dataCb = cbf.create(
-                em,
-                PositionEntity.class
-        );
-        applyFilters(dataCb, request);
-        dataCb.orderByAsc("id");
+        List<Long> ids = jpaQueryFactory
+                .select(positionEntity.id)
+                .from(positionEntity)
+                .where(predicate)
+                .orderBy(positionEntity.id.asc())
+                .offset((long) request.getPage() * request.getSize())
+                .limit(request.getSize())
+                .fetch();
 
-        List<PositionView> content =
-                evm.applySetting(
-                                EntityViewSetting.create(
-                                        PositionView.class
-                                ),
-                                dataCb
-                        )
-                        .setFirstResult(
-                                request.getPage()
-                                        * request.getSize()
-                        )
-                        .setMaxResults(
-                                request.getSize()
-                        )
-                        .getResultList();
+        List<PositionView> content = ids.stream()
+                .map(this::toView)
+                .toList();
 
-        int totalPages =
-                (int) Math.ceil(
-                        (double) totalElements
-                                / request.getSize()
-                );
+        int totalPages = (int) Math.ceil((double) totalElements / request.getSize());
 
         return PageResponse.<PositionView>builder()
                 .content(content)
@@ -289,61 +168,31 @@ public class PositionService {
                 .build();
     }
 
-    public PositionView updatePosition(
-            Long id,
-            UpdatePositionRequest request
-    ) {
+    @Auditable(action = "UPDATE", entityType = "Position")
+    public PositionView updatePosition(Long id, UpdatePositionRequest request) {
+        PositionEntity position = findPositionById(id);
 
-        PositionEntity position =
-                findPositionById(id);
-
-        if (existsByNameExceptId(
-                request.getName(),
-                id
-        )) {
-
-            throw new BusinessException(
-                    ErrorCode.CONFLICT,
-                    "Position name already exists"
-            );
+        if (existsByNameExceptId(request.getName(), id)) {
+            throw new BusinessException(ErrorCode.CONFLICT, "Position name already exists");
         }
 
-        position.setName(
-                request.getName()
-        );
-
-        position.setDescription(
-                request.getDescription()
-        );
-
+        position.setName(request.getName());
+        position.setDescription(request.getDescription());
         if (request.getDepartmentId() != null) {
-            position.setDepartment(
-                    findDepartmentById(
-                            request.getDepartmentId()
-                    )
-            );
+            position.setDepartment(findDepartmentById(request.getDepartmentId()));
         }
-
         if (request.getIsActive() != null) {
-            position.setIsActive(
-                    request.getIsActive()
-            );
+            position.setIsActive(request.getIsActive());
         }
-
-        position.setUpdatedAt(
-                LocalDateTime.now()
-        );
+        position.setUpdatedAt(LocalDateTime.now());
 
         em.flush();
-
         return toView(position.getId());
     }
 
+    @Auditable(action = "DELETE", entityType = "Position")
     public void deletePosition(Long id) {
-
-        PositionEntity position =
-                findPositionById(id);
-
+        PositionEntity position = findPositionById(id);
         em.remove(position);
     }
 }
