@@ -16,7 +16,7 @@ import com.spring.review.entityView.WebhookLogView;
 import com.spring.review.entityView.WebhookSubscriptionView;
 import com.spring.review.exception.BusinessException;
 import jakarta.persistence.EntityManager;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -60,6 +60,9 @@ public class WebhookService {
     public PageResponse<WebhookSubscriptionView> getWebhooks(
             String name, Boolean isActive, int page, int size
     ) {
+        if (size <= 0) size = 10;
+        if (page < 0) page = 0;
+
         BooleanExpression predicate = buildFilters(name, isActive);
 
         Long totalElements = jpaQueryFactory
@@ -129,6 +132,9 @@ public class WebhookService {
             Long subscriptionId, String eventName,
             String status, int page, int size
     ) {
+        if (size <= 0) size = 10;
+        if (page < 0) page = 0;
+
         BooleanExpression predicate = buildLogFilters(subscriptionId, eventName, status);
 
         Long totalElements = jpaQueryFactory
@@ -169,7 +175,7 @@ public class WebhookService {
     private WebhookSubscriptionEntity findById(Long id) {
         WebhookSubscriptionEntity entity = em.find(WebhookSubscriptionEntity.class, id);
         if (entity == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "Webhook subscription tidak ditemukan");
+            throw new BusinessException(ErrorCode.WEBHOOK_NOT_FOUND, "Webhook subscription tidak ditemukan");
         }
         return entity;
     }

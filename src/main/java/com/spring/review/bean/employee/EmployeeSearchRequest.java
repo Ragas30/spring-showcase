@@ -24,4 +24,6 @@ public class EmployeeSearchRequest extends PageSpec {
 
     private Long positionId;
 
+    private Long managerId;
+
 }

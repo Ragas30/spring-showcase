@@ -16,7 +16,7 @@ import com.spring.review.entity.DepartmentEntity;
 import com.spring.review.entityView.DepartmentView;
 import com.spring.review.exception.BusinessException;
 import jakarta.persistence.EntityManager;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

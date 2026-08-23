@@ -10,7 +10,7 @@ import com.spring.review.common.PageResponse;
 import com.spring.review.entity.AuditLogEntity;
 import com.spring.review.entityView.AuditLogView;
 import jakarta.persistence.EntityManager;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -52,6 +52,9 @@ public class AuditLogService {
     public PageResponse<AuditLogView> getAuditLogs(
             String entityType, String action, int page, int size
     ) {
+        if (size <= 0) size = 10;
+        if (page < 0) page = 0;
+
         BooleanExpression predicate = buildFilters(entityType, action);
 
         Long totalElements = jpaQueryFactory

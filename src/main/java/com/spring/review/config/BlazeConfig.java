@@ -6,6 +6,7 @@ import com.blazebit.persistence.spi.CriteriaBuilderConfiguration;
 import com.blazebit.persistence.view.EntityViewManager;
 import com.blazebit.persistence.view.EntityViews;
 import com.blazebit.persistence.view.spi.EntityViewConfiguration;
+import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.spring.review.entityView.AuthUserView;
 import com.spring.review.entityView.AuditLogView;
 import com.spring.review.entityView.DepartmentView;
@@ -14,6 +15,7 @@ import com.spring.review.entityView.PositionView;
 import com.spring.review.entityView.UserView;
 import com.spring.review.entityView.WebhookLogView;
 import com.spring.review.entityView.WebhookSubscriptionView;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -52,5 +54,12 @@ public class BlazeConfig {
         config.addEntityView(WebhookLogView.class);
 
         return config.createEntityViewManager(cbf);
+    }
+
+    @Bean
+    public JPAQueryFactory jpaQueryFactory(
+            EntityManager entityManager
+    ) {
+        return new JPAQueryFactory(entityManager);
     }
 }

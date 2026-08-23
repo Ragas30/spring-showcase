@@ -11,7 +11,7 @@ import com.spring.review.entity.UserEntity;
 import com.spring.review.entityView.AuthUserView;
 import com.spring.review.exception.BusinessException;
 import jakarta.persistence.EntityManager;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;

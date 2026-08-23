@@ -65,6 +65,10 @@ public class EmployeeEntity {
     @JoinColumn(name = "position_id")
     private PositionEntity position;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "manager_id")
+    private EmployeeEntity manager;
+
     @Column(length = 255)
     private String photoUrl;
 

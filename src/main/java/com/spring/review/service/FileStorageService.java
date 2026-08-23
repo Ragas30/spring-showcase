@@ -73,9 +73,19 @@ public class FileStorageService {
             return;
         }
 
-        Path filePath = Paths
+        Path uploadPath = Paths
                 .get(config.getUploadDir())
-                .resolve(filename);
+                .toAbsolutePath()
+                .normalize();
+
+        Path filePath = uploadPath.resolve(filename).normalize();
+
+        if (!filePath.startsWith(uploadPath)) {
+            throw new BusinessException(
+                    ErrorCode.BAD_REQUEST,
+                    "Invalid filename"
+            );
+        }
 
         try {
 

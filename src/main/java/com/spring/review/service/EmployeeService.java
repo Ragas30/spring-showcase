@@ -16,7 +16,7 @@ import com.spring.review.entity.*;
 import com.spring.review.entityView.EmployeeView;
 import com.spring.review.exception.BusinessException;
 import jakarta.persistence.EntityManager;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -90,6 +90,15 @@ public class EmployeeService {
         return position;
     }
 
+    private EmployeeEntity findManagerById(Long id) {
+        if (id == null) return null;
+        EmployeeEntity manager = em.find(EmployeeEntity.class, id);
+        if (manager == null) {
+            throw new BusinessException(ErrorCode.EMPLOYEE_NOT_FOUND, "Manager not found");
+        }
+        return manager;
+    }
+
     private EmployeeView toView(Long id) {
         return evm.applySetting(
                         EntityViewSetting.create(EmployeeView.class),
@@ -122,6 +131,9 @@ public class EmployeeService {
         if (request.getPositionId() != null) {
             predicate = predicate.and(employeeEntity.position.id.eq(request.getPositionId()));
         }
+        if (request.getManagerId() != null) {
+            predicate = predicate.and(employeeEntity.manager.id.eq(request.getManagerId()));
+        }
 
         return predicate;
     }
@@ -143,6 +155,7 @@ public class EmployeeService {
                 .status(request.getStatus())
                 .department(findDepartmentById(request.getDepartmentId()))
                 .position(findPositionById(request.getPositionId()))
+                .manager(findManagerById(request.getManagerId()))
                 .photoUrl(request.getPhotoUrl())
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
@@ -208,6 +221,7 @@ public class EmployeeService {
         employee.setStatus(request.getStatus());
         employee.setDepartment(findDepartmentById(request.getDepartmentId()));
         employee.setPosition(findPositionById(request.getPositionId()));
+        employee.setManager(findManagerById(request.getManagerId()));
         employee.setPhotoUrl(request.getPhotoUrl());
         employee.setUpdatedAt(LocalDateTime.now());
 

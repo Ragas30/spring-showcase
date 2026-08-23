@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spring.review.entity.WebhookSubscriptionEntity;
 import com.spring.review.entity.WebhookLogEntity;
 import jakarta.persistence.EntityManager;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.client.RestTemplateBuilder;
@@ -35,7 +35,7 @@ public class WebhookDeliveryService {
 
     private final RestTemplateBuilder restTemplateBuilder;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     @Async
     @Transactional
@@ -136,7 +136,7 @@ public class WebhookDeliveryService {
             return HexFormat.of().formatHex(hash);
         } catch (Exception e) {
             log.error("Failed to generate signature: {}", e.getMessage());
-            return "";
+            throw new RuntimeException("Failed to generate webhook signature", e);
         }
     }
 

@@ -52,7 +52,7 @@ public class AuditAspect {
         Object result = joinPoint.proceed();
 
         try {
-            Long entityId = extractEntityId(result);
+            Long entityId = extractEntityId(result, joinPoint);
 
             String newValues = null;
             if (result != null) {
@@ -121,21 +121,26 @@ public class AuditAspect {
         return "system";
     }
 
-    private Long extractEntityId(Object result) {
-        if (result == null) {
-            return null;
+    private Long extractEntityId(Object result, ProceedingJoinPoint joinPoint) {
+        if (result != null) {
+            try {
+                var getIdMethod = result.getClass()
+                        .getMethod("getId");
+
+                Object id = getIdMethod.invoke(result);
+
+                if (id instanceof Long longId) {
+                    return longId;
+                }
+            } catch (Exception ignored) {
+            }
         }
 
-        try {
-            var getIdMethod = result.getClass()
-                    .getMethod("getId");
-
-            Object id = getIdMethod.invoke(result);
-
-            if (id instanceof Long longId) {
-                return longId;
+        Object[] args = joinPoint.getArgs();
+        for (Object arg : args) {
+            if (arg instanceof Long id) {
+                return id;
             }
-        } catch (Exception ignored) {
         }
 
         return null;

@@ -17,7 +17,7 @@ import com.spring.review.entity.PositionEntity;
 import com.spring.review.entityView.PositionView;
 import com.spring.review.exception.BusinessException;
 import jakarta.persistence.EntityManager;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -50,7 +50,7 @@ public class PositionService {
 
     private boolean existsByNameExceptId(String name, Long id) {
         Long count = jpaQueryFactory
-                .select(positionEntity.count())
+                .select(positionEntity.count()) 
                 .from(positionEntity)
                 .where(positionEntity.name.eq(name)
                         .and(positionEntity.id.ne(id)))

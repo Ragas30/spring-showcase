@@ -36,6 +36,12 @@ public interface EmployeeView {
     @Mapping("position.name")
     String getPositionName();
 
+    @Mapping("manager.id")
+    Long getManagerId();
+
+    @Mapping("manager.fullName")
+    String getManagerName();
+
     String getPhotoUrl();
 
     LocalDateTime getCreatedAt();
