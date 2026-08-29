@@ -93,7 +93,9 @@ public class SecurityConfig {
                                 "/api/auth/refresh",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                "/v3/api-docs/**"
+                                "/v3/api-docs/**",
+                                "/ws",
+                                "/ws/**"
                         )
                         .permitAll()
 
@@ -135,6 +137,12 @@ public class SecurityConfig {
                                 "/api/audit-logs/**"
                         )
                         .hasRole("ADMIN")
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/notifications"
+                        )
+                        .hasAnyRole("ADMIN", "HR")
 
                         .requestMatchers(
                                 "/actuator/health"

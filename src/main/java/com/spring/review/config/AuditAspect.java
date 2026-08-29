@@ -3,6 +3,7 @@ package com.spring.review.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.spring.review.service.AuditLogService;
+import com.spring.review.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -14,6 +15,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
+import java.util.List;
 
 @Aspect
 @Component
@@ -22,6 +24,8 @@ import java.lang.reflect.Method;
 public class AuditAspect {
 
     private final AuditLogService auditLogService;
+
+    private final NotificationService notificationService;
 
     private final ObjectMapper objectMapper =
             new ObjectMapper()
@@ -66,6 +70,8 @@ public class AuditAspect {
                         performedBy
                 );
             }
+
+            dispatchNotification(entityType, action, entityId);
         } catch (Exception e) {
             log.error(
                     "Failed to record audit log: {}",
@@ -74,6 +80,58 @@ public class AuditAspect {
         }
 
         return result;
+    }
+
+    private void dispatchNotification(
+            String entityType,
+            String action,
+            Long entityId
+    ) {
+        try {
+            List<String> targetRoles = notifyRoles(entityType, action);
+
+            if (targetRoles.isEmpty()) {
+                return;
+            }
+
+            String title = entityType + " " + action;
+            String message = entityType
+                    + " dengan ID " + entityId
+                    + " telah di-" + action.toLowerCase()
+                    + " oleh " + getCurrentUser();
+
+            for (String role : targetRoles) {
+                notificationService.broadcastToRole(
+                        role,
+                        title,
+                        message,
+                        "BUSINESS",
+                        entityType,
+                        entityId
+                );
+            }
+        } catch (Exception e) {
+            log.error(
+                    "Failed to dispatch notification: {}",
+                    e.getMessage()
+            );
+        }
+    }
+
+    private List<String> notifyRoles(
+            String entityType,
+            String action
+    ) {
+        if (!List.of("Employee", "Department", "Position")
+                .contains(entityType)) {
+            return List.of();
+        }
+
+        if ("DELETE".equals(action)) {
+            return List.of("ADMIN");
+        }
+
+        return List.of("ADMIN", "HR", "MANAGER");
     }
 
     private String getCurrentUser() {

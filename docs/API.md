@@ -45,6 +45,7 @@ src/main/java/com/spring/review/
 │   ├── DepartmentEntity.java           #   Tabel departments
 │   ├── PositionEntity.java             #   Tabel positions
 │   ├── AuditLogEntity.java             #   Tabel audit_logs
+│   ├── NotificationEntity.java         #   Tabel notifications
 │   ├── Gender.java                     #   Enum: MALE, FEMALE
 │   └── EmployeeStatus.java             #   Enum: ACTIVE, INACTIVE, RESIGNED
 │
@@ -55,6 +56,7 @@ src/main/java/com/spring/review/
 │   ├── PositionView.java               #   Position read-only view
 │   ├── AuthUserView.java               #   Auth user view
 │   ├── AuditLogView.java               #   Audit log read-only view
+│   ├── NotificationView.java           #   Notification read-only view
 │
 ├── bean/                               # Request/Response DTOs
 │   ├── auth/
@@ -78,6 +80,10 @@ src/main/java/com/spring/review/
 │   │   └── PositionSearchRequest.java  #   Search/filter positions params
 │   ├── audit/
 │   │   └── AuditLogSearchRequest.java  #   Search/filter audit logs params
+│   ├── notification/
+│   │   ├── CreateNotificationRequest.java  #   Manual notification request body
+│   │   ├── NotificationSearchRequest.java  #   Search/filter notifications params
+│   │   └── UnreadCountResponse.java        #   Unread notification count response
 │   └── dashboard/
 │       ├── DashboardStatsResponse.java #   Dashboard statistics response
 │       └── HiringTrendResponse.java    #   Hiring trend response
@@ -89,6 +95,7 @@ src/main/java/com/spring/review/
 │   ├── PositionController.java         #   /api/positions/** - CRUD positions
 │   ├── FileController.java             #   /api/files/** - Upload & delete files
 │   ├── AuditLogController.java         #   /api/audit-logs/** - View audit logs (ADMIN only)
+│   ├── NotificationController.java     #   /api/notifications/** - Notifications CRUD
 │   ├── ExportController.java           #   /api/export/** - Export/Import Excel & PDF
 │   └── DashboardController.java        #   /api/dashboard/** - Dashboard statistics
 │
@@ -101,11 +108,16 @@ src/main/java/com/spring/review/
 │   ├── JwtService.java                 #   JWT token generation & validation
 │   ├── JwtAuthenticationFilter.java    #   Filter request, validate JWT header
 │   ├── AuditLogService.java            #   Audit log record & search with Blaze
+│   ├── NotificationService.java        #   Notification create/list/read + WebSocket push
 │   ├── ExportImportService.java        #   Excel/PDF export, Excel import
 │   └── DashboardService.java           #   Dashboard statistics & hiring trend
 │
 ├── config/                             # Configuration
 │   ├── SecurityConfig.java             #   Spring Security config + CORS
+│   ├── WebSocketConfig.java            #   STOMP WebSocket + simple broker config
+│   ├── JwtHandshakeInterceptor.java    #   Validasi JWT saat WebSocket handshake
+│   ├── JwtChannelInterceptor.java      #   Set principal user dari handshake ke STOMP
+│   ├── WebSocketPrincipal.java         #   Principal (username + role) untuk WS session
 │   ├── ApplicationConfig.java          #   App-wide bean config
 │   ├── BlazeConfig.java                #   Blaze-Persistence config (+ AuditLogView registration)
 │   ├── FileStorageConfig.java          #   File upload config (path, size, types)
@@ -141,6 +153,7 @@ src/main/java/com/spring/review/
 └── db/                                 # Database migrations
     └── migration/
         └── V1__init_schema.sql         #   Flyway initial schema
+        └── V7__create_notifications_table.sql  #   Tabel notifications
 ```
 
 ---
@@ -634,13 +647,171 @@ Parameter filter: `entityType`, `entityId`, `action`, `performedBy`, `dateFrom`,
 
 > Hanya role **ADMIN** yang bisa mengakses audit logs.
 
-### 15. Swagger UI
+### 15. Notifikasi (REST API)
+
+Notifikasi disimpan per-user di tabel `notifications`. Setiap user hanya bisa mengakses notifikasinya sendiri.
+
+**List Notifikasi (dengan pagination & filter):**
+
+```
+GET /api/notifications?page=0&size=10&unreadOnly=true
+Authorization: Bearer <token>
+```
+
+Parameter: `page`, `size`, `unreadOnly` (opsional, filter notifikasi yang belum dibaca).
+
+**Jumlah Notifikasi Belum Dibaca:**
+
+```
+GET /api/notifications/unread-count
+Authorization: Bearer <token>
+```
+
+Response:
+
+```json
+{
+  "code": "SUCCESS",
+  "message": "Unread count retrieved successfully",
+  "data": { "unreadCount": 3 }
+}
+```
+
+**Tandai Satu Notifikasi sebagai Dibaca:**
+
+```
+PATCH /api/notifications/{id}/read
+Authorization: Bearer <token>
+```
+
+**Tandai Semua Notifikasi sebagai Dibaca:**
+
+```
+PATCH /api/notifications/read-all
+Authorization: Bearer <token>
+```
+
+**Kirim Notifikasi Manual (ADMIN/HR):**
+
+```
+POST /api/notifications
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "recipientUsername": "hr_user",
+  "title": "Meeting",
+  "message": "Rapat evaluasi pukul 10:00",
+  "type": "MANUAL",
+  "entityType": "Department",
+  "entityId": 1,
+  "broadcastToRole": true
+}
+```
+
+| Field             | Keterangan                                      |
+|-------------------|-------------------------------------------------|
+| `recipientUsername`| Username penerima (wajib). Role otomatis diambil dari user tsb |
+| `title`           | Judul notifikasi (wajib)                        |
+| `message`         | Isi pesan (opsional)                            |
+| `type`            | Tipe notifikasi, default `MANUAL`               |
+| `entityType`      | Entity terkait, misal `Employee` (opsional)     |
+| `entityId`        | ID entity terkait (opsional)                    |
+| `broadcastToRole` | Jika `true`, juga dikirim ke topic role user    |
+
+> Hanya role **ADMIN** dan **HR** yang bisa mengirim notifikasi manual.
+
+### 16. Notifikasi Realtime via WebSocket (STOMP)
+
+Aplikasi menggunakan **Spring WebSocket + STOMP** dengan simple (in-memory) broker.
+
+- Endpoint handshake: `/ws` (dan `/ws` dengan SockJS fallback)
+- Prefix user destination: `/user/queue/notifications`
+- Prefix topic role: `/topic/notifications.{ROLE}` (misal `/topic/notifications.ADMIN`)
+- Notifikasi dikirim otomatis ke user/role ketika terjadi event bisnis (create/update/delete employee, department, position)
+
+#### Koneksi
+
+WebSocket diautentikasi menggunakan JWT yang dikirim sebagai **query param `token`** saat handshake.
+
+```
+ws://localhost:8080/ws?token=<accessToken>
+```
+
+Contoh dengan SockJS + STOMP (browser):
+
+```js
+const socket = new SockJS('/ws?token=' + accessToken);
+const stompClient = Stomp.over(socket);
+
+stompClient.connect({}, function (frame) {
+  // Subscribe notifikasi per-user
+  stompClient.subscribe('/user/queue/notifications', function (msg) {
+    const notif = JSON.parse(msg.body);
+    console.log('Notifikasi baru:', notif);
+  });
+
+  // (Opsional) Subscribe notifikasi berdasarkan role
+  stompClient.subscribe('/topic/notifications.ADMIN', function (msg) {
+    console.log('Notifikasi broadcast role:', JSON.parse(msg.body));
+  });
+});
+```
+
+Contoh dengan `@stomp/stompjs` (tanpa SockJS, native WebSocket):
+
+```js
+const client = new StompJs.Client({
+  brokerURL: 'ws://localhost:8080/ws?token=' + accessToken,
+  reconnectDelay: 5000,
+});
+client.onConnect = () => {
+  client.subscribe('/user/queue/notifications', (msg) => {
+    console.log(JSON.parse(msg.body));
+  });
+};
+client.activate();
+```
+
+#### Payload Notifikasi
+
+`NotificationView` yang diterima client (via WS maupun REST):
+
+```json
+{
+  "id": 1,
+  "recipientUsername": "hr_user",
+  "recipientRole": "HR",
+  "title": "Employee CREATE",
+  "message": "Employee dengan ID 5 telah di-create oleh admin",
+  "type": "BUSINESS",
+  "entityType": "Employee",
+  "entityId": 5,
+  "isRead": false,
+  "readAt": null,
+  "createdAt": "2026-08-29T10:00:00"
+}
+```
+
+#### Notifikasi Otomatis dari Event Bisnis
+
+Setiap operasi `@Auditable` pada **Employee**, **Department**, atau **Position** memicu notifikasi otomatis:
+
+| Aksi   | Tipe       | Penerima (role)              |
+|--------|------------|------------------------------|
+| CREATE | `BUSINESS` | ADMIN, HR, MANAGER           |
+| UPDATE | `BUSINESS` | ADMIN, HR, MANAGER           |
+| DELETE | `BUSINESS` | ADMIN                        |
+
+> Catatan: Broker STOMP in-memory (simple broker) — notifikasi realtime hanya sampai ke client yang **sedang terhubung**. Untuk kebutuhan multi-instance / persist jangka panjang, gunakan notifikasi per-user yang tersimpan di DB + REST polling/refresh ketika reconnect.
+
+### 17. Swagger UI
 
 Buka `http://localhost:8080/swagger-ui.html` untuk interactive API documentation. Bisa langsung test semua endpoint dari browser.
 
 > Untuk authorize di Swagger, klik tombol **Authorize** di atas kanan, lalu masukkan: `Bearer <token>`
 
-### 16. Spring Actuator
+### 18. Spring Actuator
 
 **Health Check (Public):**
 
@@ -675,7 +846,7 @@ GET /actuator/metrics
 Authorization: Bearer <token>
 ```
 
-### 17. QueryDSL Integration
+### 19. QueryDSL Integration
 
 Project menggunakan **QueryDSL** (OpenFeign fork v7.3.0) untuk type-safe queries. Pendekatan hybrid: QueryDSL untuk query building (count, predicates, ID fetching) + Blaze-Persistence Entity Views untuk DTO projection.
 
@@ -774,6 +945,12 @@ evm.applySetting(
 | `/api/files/upload`         | POST   |  O    |  O  |    -    |
 | `/api/files/{filename}`     | DELETE |  O    |  -  |    -    |
 | `/api/audit-logs`           | GET    |  O    |  -  |    -    |
+| `/api/notifications`        | GET    |  O    |  O  |    O    |
+| `/api/notifications/unread-count` | GET |  O  |  O  |    O    |
+| `/api/notifications/{id}/read` | PATCH |  O  |  O  |    O    |
+| `/api/notifications/read-all` | PATCH |  O  |  O  |    O    |
+| `/api/notifications`        | POST   |  O    |  O  |    -    |
+| `/ws`, `/ws/**`             | WS     |  O    |  O  |    O    |
 | `/api/export/excel`         | GET    |  O    |  O  |    O    |
 | `/api/export/pdf`           | GET    |  O    |  O  |    O    |
 | `/api/export/import`        | POST   |  O    |  O  |    -    |
@@ -849,6 +1026,19 @@ audit_logs
 ├── new_values      TEXT (JSON)
 ├── performed_by    VARCHAR(50)
 ├── performed_at    TIMESTAMP
+
+notifications
+├── id                BIGINT (PK, auto increment)
+├── recipient_username VARCHAR(100)
+├── recipient_role    VARCHAR(50)
+├── title             VARCHAR(200)
+├── message           TEXT
+├── type              VARCHAR(50)
+├── entity_type       VARCHAR(50)
+├── entity_id         BIGINT
+├── is_read           BOOLEAN (default false)
+├── read_at           TIMESTAMP
+└── created_at        TIMESTAMP
 ```
 
 ---
@@ -906,6 +1096,7 @@ Error response:
 | 2026-08-19    | 2.0   | Flyway migrations, Custom Validators, Logout, Change Password, Audit Logging, Export/Import (Excel/PDF), Dashboard |
 | 2026-08-20    | 3.0   | Spring Actuator |
 | 2026-08-20    | 3.1   | QueryDSL integration (OpenFeign fork v7.3.0), hybrid Blaze approach |
+| 2026-08-29    | 4.0   | Notification (per-user DB) + WebSocket STOMP realtime push (JWT handshake auth), auto business-event notifications |
 
 ---
 
@@ -923,5 +1114,5 @@ Error response:
 | 8 | Export/Import PDF      |   O    | Export laporan ke PDF (OpenPDF)               |
 | 9 | Spring Actuator       |   O    | Health check, info, metrics endpoints         |
 |10 | QueryDSL Integration  |   O    | Type-safe queries with hybrid Blaze approach  |
-|11 | Notification           |   -    | Email notification saat event tertentu        |
+|11 | Notification           |   O    | Per-user notif (DB) + WebSocket realtime push + auto business events |
 |12 | Dashboard/Reporting    |   O    | Statistik & hiring trend karyawan             |

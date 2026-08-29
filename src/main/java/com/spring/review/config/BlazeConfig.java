@@ -12,6 +12,7 @@ import com.querydsl.sql.SQLQueryFactory;
 import com.spring.review.entityView.AuthUserView;
 import com.spring.review.entityView.AuditLogView;
 import com.spring.review.entityView.DepartmentView;
+import com.spring.review.entityView.NotificationView;
 import com.spring.review.entityView.EmployeeView;
 import com.spring.review.entityView.PositionView;
 import com.spring.review.entityView.UserView;
@@ -53,6 +54,7 @@ public class BlazeConfig {
         config.addEntityView(DepartmentView.class);
         config.addEntityView(PositionView.class);
         config.addEntityView(AuditLogView.class);
+        config.addEntityView(NotificationView.class);
 
         return config.createEntityViewManager(cbf);
     }

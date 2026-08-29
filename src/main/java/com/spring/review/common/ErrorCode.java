@@ -20,5 +20,6 @@ public enum ErrorCode {
     ACCESS_DENIED,
     TOKEN_EXPIRED,
     INVALID_TOKEN,
+    NOTIFICATION_NOT_FOUND,
 }
 
