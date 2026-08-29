@@ -1,8 +1,11 @@
 package com.spring.review.service;
 
+import com.querydsl.core.Tuple;
+import com.querydsl.core.types.dsl.Expressions;
+import com.querydsl.core.types.dsl.StringTemplate;
+import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.spring.review.bean.dashboard.DashboardStatsResponse;
 import com.spring.review.bean.dashboard.HiringTrendResponse;
-import jakarta.persistence.EntityManager;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,65 +18,71 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.spring.review.entity.QEmployeeEntity.employeeEntity;
+import static com.spring.review.entity.QDepartmentEntity.departmentEntity;
+import static com.spring.review.entity.QPositionEntity.positionEntity;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class DashboardService {
 
-    private final EntityManager em;
+    private final JPAQueryFactory jpaQueryFactory;
 
     public DashboardStatsResponse getStats() {
 
-        Long totalEmployees = em.createQuery(
-                "SELECT COUNT(e) FROM EmployeeEntity e",
-                Long.class
-        ).getSingleResult();
+        Long totalEmployees = jpaQueryFactory
+                .select(employeeEntity.count())
+                .from(employeeEntity)
+                .fetchOne();
 
-        Long totalDepartments = em.createQuery(
-                "SELECT COUNT(d) FROM DepartmentEntity d",
-                Long.class
-        ).getSingleResult();
+        Long totalDepartments = jpaQueryFactory
+                .select(departmentEntity.count())
+                .from(departmentEntity)
+                .fetchOne();
 
-        Long totalPositions = em.createQuery(
-                "SELECT COUNT(p) FROM PositionEntity p",
-                Long.class
-        ).getSingleResult();
+        Long totalPositions = jpaQueryFactory
+                .select(positionEntity.count())
+                .from(positionEntity)
+                .fetchOne();
 
         Map<String, Long> byStatus = new LinkedHashMap<>();
-        List<Object[]> statusResults = em.createQuery(
-                "SELECT e.status, COUNT(e) FROM EmployeeEntity e GROUP BY e.status",
-                Object[].class
-        ).getResultList();
-        for (Object[] row : statusResults) {
-            String status = row[0] != null
-                    ? row[0].toString() : "UNKNOWN";
-            Long count = (Long) row[1];
+        List<Tuple> statusResults = jpaQueryFactory
+                .select(employeeEntity.status, employeeEntity.count())
+                .from(employeeEntity)
+                .groupBy(employeeEntity.status)
+                .fetch();
+        for (Tuple row : statusResults) {
+            String status = row.get(employeeEntity.status) != null
+                    ? row.get(employeeEntity.status).name() : "UNKNOWN";
+            Long count = row.get(employeeEntity.count());
             byStatus.put(status, count);
         }
 
         Map<String, Long> byGender = new LinkedHashMap<>();
-        List<Object[]> genderResults = em.createQuery(
-                "SELECT e.gender, COUNT(e) FROM EmployeeEntity e GROUP BY e.gender",
-                Object[].class
-        ).getResultList();
-        for (Object[] row : genderResults) {
-            String gender = row[0] != null
-                    ? row[0].toString() : "UNKNOWN";
-            Long count = (Long) row[1];
+        List<Tuple> genderResults = jpaQueryFactory
+                .select(employeeEntity.gender, employeeEntity.count())
+                .from(employeeEntity)
+                .groupBy(employeeEntity.gender)
+                .fetch();
+        for (Tuple row : genderResults) {
+            String gender = row.get(employeeEntity.gender) != null
+                    ? row.get(employeeEntity.gender).name() : "UNKNOWN";
+            Long count = row.get(employeeEntity.count());
             byGender.put(gender, count);
         }
 
         Map<String, Long> byDepartment = new LinkedHashMap<>();
-        List<Object[]> deptResults = em.createQuery(
-                "SELECT d.name, COUNT(e) FROM EmployeeEntity e " +
-                        "LEFT JOIN e.department d " +
-                        "GROUP BY d.name",
-                Object[].class
-        ).getResultList();
-        for (Object[] row : deptResults) {
-            String dept = row[0] != null
-                    ? row[0].toString() : "No Department";
-            Long count = (Long) row[1];
+        List<Tuple> deptResults = jpaQueryFactory
+                .select(departmentEntity.name, employeeEntity.count())
+                .from(employeeEntity)
+                .leftJoin(employeeEntity.department, departmentEntity)
+                .groupBy(departmentEntity.name)
+                .fetch();
+        for (Tuple row : deptResults) {
+            String dept = row.get(departmentEntity.name) != null
+                    ? row.get(departmentEntity.name) : "No Department";
+            Long count = row.get(employeeEntity.count());
             byDepartment.put(dept, count);
         }
 
@@ -92,20 +101,23 @@ public class DashboardService {
         LocalDate now = LocalDate.now();
         LocalDate start = now.minusMonths(11).withDayOfMonth(1);
 
-        List<Object[]> results = em.createQuery(
-                "SELECT FUNCTION('TO_CHAR', e.hireDate, 'YYYY-MM'), COUNT(e) " +
-                        "FROM EmployeeEntity e " +
-                        "WHERE e.hireDate >= :start " +
-                        "GROUP BY FUNCTION('TO_CHAR', e.hireDate, 'YYYY-MM') " +
-                        "ORDER BY FUNCTION('TO_CHAR', e.hireDate, 'YYYY-MM')",
-                Object[].class
-        ).setParameter("start", start)
-         .getResultList();
+        StringTemplate monthExpr = Expressions.stringTemplate(
+                "TO_CHAR({0}, 'YYYY-MM')",
+                employeeEntity.hireDate
+        );
+
+        List<Tuple> results = jpaQueryFactory
+                .select(monthExpr, employeeEntity.count())
+                .from(employeeEntity)
+                .where(employeeEntity.hireDate.goe(start))
+                .groupBy(monthExpr)
+                .orderBy(monthExpr.asc())
+                .fetch();
 
         Map<String, Long> dataMap = new LinkedHashMap<>();
-        for (Object[] row : results) {
-            String month = (String) row[0];
-            Long count = (Long) row[1];
+        for (Tuple row : results) {
+            String month = row.get(monthExpr);
+            Long count = row.get(employeeEntity.count());
             dataMap.put(month, count);
         }
 

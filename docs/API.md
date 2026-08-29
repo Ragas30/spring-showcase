@@ -17,7 +17,6 @@ Sistem manajemen karyawan berbasis REST API dengan Spring Boot. Menggunakan JWT 
 | Migrations     | Flyway                             |
 | Validation     | Hibernate Validator (Jakarta)      |
 | API Docs       | Springdoc OpenAPI (Swagger UI)     |
-| Cache/Blacklist| Redis                              |
 | Monitoring     | Spring Boot Actuator               |
 | Build Tool     | Maven                              |
 | Code Gen       | Lombok                             |
@@ -27,7 +26,6 @@ Sistem manajemen karyawan berbasis REST API dengan Spring Boot. Menggunakan JWT 
 
 | Dependency                      | Version | Scope                          |
 |---------------------------------|---------|--------------------------------|
-| `spring-boot-starter-data-redis`|         | compile                        |
 | `spring-boot-starter-actuator`  |         | compile                        |
 | `querydsl-jpa`                  | 7.3.0   | compile                        |
 | `querydsl-apt`                  | 7.3.0   | provided (annotation processor)|
@@ -47,8 +45,6 @@ src/main/java/com/spring/review/
 │   ├── DepartmentEntity.java           #   Tabel departments
 │   ├── PositionEntity.java             #   Tabel positions
 │   ├── AuditLogEntity.java             #   Tabel audit_logs
-│   ├── WebhookSubscriptionEntity.java  #   Tabel webhook_subscriptions
-│   ├── WebhookLogEntity.java           #   Tabel webhook_logs
 │   ├── Gender.java                     #   Enum: MALE, FEMALE
 │   └── EmployeeStatus.java             #   Enum: ACTIVE, INACTIVE, RESIGNED
 │
@@ -59,8 +55,6 @@ src/main/java/com/spring/review/
 │   ├── PositionView.java               #   Position read-only view
 │   ├── AuthUserView.java               #   Auth user view
 │   ├── AuditLogView.java               #   Audit log read-only view
-│   ├── WebhookSubscriptionView.java    #   Webhook subscription read-only view
-│   └── WebhookLogView.java             #   Webhook log read-only view
 │
 ├── bean/                               # Request/Response DTOs
 │   ├── auth/
@@ -84,10 +78,6 @@ src/main/java/com/spring/review/
 │   │   └── PositionSearchRequest.java  #   Search/filter positions params
 │   ├── audit/
 │   │   └── AuditLogSearchRequest.java  #   Search/filter audit logs params
-│   ├── webhook/
-│   │   ├── CreateWebhookRequest.java   #   Create webhook subscription request body
-│   │   ├── UpdateWebhookRequest.java   #   Update webhook subscription request body
-│   │   └── WebhookSearchRequest.java   #   Search/filter webhook subscriptions params
 │   └── dashboard/
 │       ├── DashboardStatsResponse.java #   Dashboard statistics response
 │       └── HiringTrendResponse.java    #   Hiring trend response
@@ -100,8 +90,7 @@ src/main/java/com/spring/review/
 │   ├── FileController.java             #   /api/files/** - Upload & delete files
 │   ├── AuditLogController.java         #   /api/audit-logs/** - View audit logs (ADMIN only)
 │   ├── ExportController.java           #   /api/export/** - Export/Import Excel & PDF
-│   ├── DashboardController.java        #   /api/dashboard/** - Dashboard statistics
-│   └── WebhookController.java         #   /api/webhooks/** - Webhook subscription management
+│   └── DashboardController.java        #   /api/dashboard/** - Dashboard statistics
 │
 ├── service/                            # Business Logic
 │   ├── UserAuthService.java            #   Auth logic (login, register, refresh, logout, change password)
@@ -110,13 +99,10 @@ src/main/java/com/spring/review/
 │   ├── PositionService.java            #   Position CRUD logic
 │   ├── FileStorageService.java         #   File upload, delete, validation
 │   ├── JwtService.java                 #   JWT token generation & validation
-│   ├── JwtAuthenticationFilter.java    #   Filter request, validate JWT header + blacklist check
-│   ├── TokenBlacklistService.java      #   Token blacklist (Redis-backed, 7-day TTL)
+│   ├── JwtAuthenticationFilter.java    #   Filter request, validate JWT header
 │   ├── AuditLogService.java            #   Audit log record & search with Blaze
 │   ├── ExportImportService.java        #   Excel/PDF export, Excel import
-│   ├── DashboardService.java           #   Dashboard statistics & hiring trend
-│   ├── WebhookService.java             #   Webhook subscription CRUD
-│   └── WebhookDeliveryService.java     #   Async webhook event delivery with HMAC signature
+│   └── DashboardService.java           #   Dashboard statistics & hiring trend
 │
 ├── config/                             # Configuration
 │   ├── SecurityConfig.java             #   Spring Security config + CORS
@@ -154,8 +140,7 @@ src/main/java/com/spring/review/
 │
 └── db/                                 # Database migrations
     └── migration/
-        ├── V1__init_schema.sql         #   Flyway initial schema
-        └── V2__add_webhook_tables.sql  #   Flyway webhook tables migration
+        └── V1__init_schema.sql         #   Flyway initial schema
 ```
 
 ---
@@ -171,13 +156,6 @@ CREATE DATABASE karyawan;
 ```
 
 4. Pastikan PostgreSQL jalan di `localhost:5432`
-
-5. **Redis** - diperlukan untuk token blacklist
-
-```bash
-# Pastikan Redis berjalan di localhost:6379
-redis-cli ping
-```
 
 ---
 
@@ -202,10 +180,6 @@ spring.flyway.baseline-on-migrate=true
 jwt.secret=ems-development-secret-key-2026-super-secure-minimum-32-characters
 jwt.expiration=86400000          # 1 hari (ms)
 jwt.refresh-expiration=604800000 # 7 hari (ms)
-
-# Redis
-spring.data.redis.host=localhost
-spring.data.redis.port=6379
 
 # Actuator
 management.endpoints.web.exposure.include=health,info,metrics
@@ -276,7 +250,7 @@ Content-Type: application/json
 }
 ```
 
-Token yang di-logout akan ditambahkan ke blacklist (Redis). Token yang sudah di-blacklist tidak bisa digunakan lagi selama 7 hari (TTL 168 jam).
+Token yang sudah di-logout tidak dapat digunakan lagi untuk request berikutnya.
 
 ### 4. Change Password
 
@@ -666,98 +640,7 @@ Buka `http://localhost:8080/swagger-ui.html` untuk interactive API documentation
 
 > Untuk authorize di Swagger, klik tombol **Authorize** di atas kanan, lalu masukkan: `Bearer <token>`
 
-### 16. Webhook
-
-**Create Subscription:**
-
-```
-POST /api/webhooks
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "url": "https://example.com/webhook",
-  "events": ["employee.created", "employee.updated"],
-  "description": "Employee event notifications"
-}
-```
-
-**List Subscriptions:**
-
-```
-GET /api/webhooks?page=0&size=10
-Authorization: Bearer <token>
-```
-
-**Get Subscription:**
-
-```
-GET /api/webhooks/1
-Authorization: Bearer <token>
-```
-
-**Update Subscription:**
-
-```
-PUT /api/webhooks/1
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "url": "https://example.com/webhook/updated",
-  "events": ["employee.created", "employee.updated", "employee.deleted"],
-  "isActive": true
-}
-```
-
-**Delete Subscription:**
-
-```
-DELETE /api/webhooks/1
-Authorization: Bearer <token>
-```
-
-**Get Webhook Logs:**
-
-```
-GET /api/webhooks/logs?page=0&size=10&subscriptionId=1&status=SUCCESS
-Authorization: Bearer <token>
-```
-
-Parameter filter: `subscriptionId`, `event`, `status`, `dateFrom`, `dateTo`
-
-> Hanya role **ADMIN** yang bisa mengelola webhooks.
-
-**Supported Events:**
-
-| Event                    | Trigger                              |
-|--------------------------|--------------------------------------|
-| `employee.created`       | Employee created                     |
-| `employee.updated`       | Employee updated                     |
-| `employee.deleted`       | Employee deleted                     |
-| `department.created`     | Department created                   |
-| `department.updated`     | Department updated                   |
-| `department.deleted`     | Department deleted                   |
-| `position.created`       | Position created                     |
-| `position.updated`       | Position updated                     |
-| `position.deleted`       | Position deleted                     |
-
-**Webhook Delivery:**
-
-Setiap delivery dilakukan secara async dan menyertakan header `X-Webhook-Signature` berisi HMAC-SHA256 signature dari payload menggunakan secret subscription sebagai key.
-
-### 17. Redis Token Blacklist
-
-Token blacklist sekarang menggunakan **Redis** sebagai backing store, menggantikan in-memory `ConcurrentHashMap`.
-
-**Keunggulan:**
-- Token blacklist persist di Redis, tidak hilang saat application restart
-- TTL otomatis 168 jam (7 hari), sesuai dengan `jwt.refresh-expiration`
-- Performa tinggi untuk high-concurrency blacklist checks
-
-**Prerequisite:** Redis harus berjalan di `localhost:6379`.
-
-### 18. Spring Actuator
+### 16. Spring Actuator
 
 **Health Check (Public):**
 
@@ -771,8 +654,7 @@ Response:
 {
   "status": "UP",
   "components": {
-    "db": { "status": "UP" },
-    "redis": { "status": "UP" }
+    "db": { "status": "UP" }
   }
 }
 ```
@@ -793,7 +675,7 @@ GET /actuator/metrics
 Authorization: Bearer <token>
 ```
 
-### 19. QueryDSL Integration
+### 17. QueryDSL Integration
 
 Project menggunakan **QueryDSL** (OpenFeign fork v7.3.0) untuk type-safe queries. Pendekatan hybrid: QueryDSL untuk query building (count, predicates, ID fetching) + Blaze-Persistence Entity Views untuk DTO projection.
 
@@ -805,8 +687,6 @@ Q-classes di-generate otomatis dari entity menggunakan annotation processor:
 QEmployeeEntity
 QDepartmentEntity
 QPositionEntity
-QWebhookSubscriptionEntity
-QWebhookLogEntity
 QAuditLogEntity
 ```
 
@@ -862,7 +742,6 @@ evm.applySetting(
 - `EmployeeService` - QueryDSL predicates untuk search/filter
 - `DepartmentService` - QueryDSL predicates untuk search/filter
 - `PositionService` - QueryDSL predicates untuk search/filter
-- `WebhookService` - QueryDSL predicates untuk search/filter
 - `AuditLogService` - QueryDSL predicates untuk search/filter
 - `DashboardService` - Tetap menggunakan raw JPQL (aggregate queries)
 
@@ -900,12 +779,6 @@ evm.applySetting(
 | `/api/export/import`        | POST   |  O    |  O  |    -    |
 | `/api/dashboard/stats`      | GET    |  O    |  O  |    O    |
 | `/api/dashboard/hiring-trend` | GET  |  O    |  O  |    O    |
-| `/api/webhooks`             | POST   |  O    |  -  |    -    |
-| `/api/webhooks`             | GET    |  O    |  -  |    -    |
-| `/api/webhooks/{id}`        | GET    |  O    |  -  |    -    |
-| `/api/webhooks/{id}`        | PUT    |  O    |  -  |    -    |
-| `/api/webhooks/{id}`        | DELETE |  O    |  -  |    -    |
-| `/api/webhooks/logs`        | GET    |  O    |  -  |    -    |
 | `/actuator/health`          | GET    |  O    |  O  |    O    |
 | `/actuator/info`            | GET    |  O    |  -  |    -    |
 | `/actuator/metrics`         | GET    |  O    |  -  |    -    |
@@ -914,7 +787,7 @@ evm.applySetting(
 
 ## Database Schema
 
-Dikelola oleh Flyway migration (`V1__init_schema.sql`, `V2__add_webhook_tables.sql`).
+Dikelola oleh Flyway migration (`V1__init_schema.sql`).
 
 ```sql
 -- Sequences untuk code generation (concurrency-safe)
@@ -978,32 +851,6 @@ audit_logs
 ├── performed_at    TIMESTAMP
 ```
 
-### V2: Webhook Tables (`V2__add_webhook_tables.sql`)
-
-```sql
-webhook_subscriptions
-├── id              BIGINT (PK, auto increment)
-├── url             VARCHAR(500)
-├── events          TEXT (JSON array)
-├── secret          VARCHAR(255)
-├── description     VARCHAR(255)
-├── is_active       BOOLEAN
-├── created_at      TIMESTAMP
-└── updated_at      TIMESTAMP
-
-webhook_logs
-├── id              BIGINT (PK, auto increment)
-├── subscription_id BIGINT (FK → webhook_subscriptions.id)
-├── event           VARCHAR(50)
-├── payload         TEXT (JSON)
-├── status          VARCHAR(20) -- SUCCESS, FAILED
-├── response_code   INT
-├── response_body   TEXT
-├── error_message   TEXT
-├── attempt_at      TIMESTAMP
-└── created_at      TIMESTAMP
-```
-
 ---
 
 ## Response Format
@@ -1036,10 +883,6 @@ Error response:
 
 **EmployeeStatus:** `ACTIVE`, `INACTIVE`, `RESIGNED`
 
-**WebhookEvent:** `employee.created`, `employee.updated`, `employee.deleted`, `department.created`, `department.updated`, `department.deleted`, `position.created`, `position.updated`, `position.deleted`
-
-**WebhookDeliveryStatus:** `SUCCESS`, `FAILED`
-
 ---
 
 ## Custom Validators
@@ -1061,7 +904,7 @@ Error response:
 | 2026-08-18    | 1.2   | File Upload: foto profil employee, local storage     |
 | 2026-08-18    | 1.3   | Position module: CRUD, relasi ke Department & Employee|
 | 2026-08-19    | 2.0   | Flyway migrations, Custom Validators, Logout, Change Password, Audit Logging, Export/Import (Excel/PDF), Dashboard |
-| 2026-08-20    | 3.0   | Webhook module, Redis token blacklist, Spring Actuator |
+| 2026-08-20    | 3.0   | Spring Actuator |
 | 2026-08-20    | 3.1   | QueryDSL integration (OpenFeign fork v7.3.0), hybrid Blaze approach |
 
 ---
@@ -1078,9 +921,7 @@ Error response:
 | 6 | Audit Log              |   O    | Track siapa yang akses/ubah data              |
 | 7 | Export/Import Excel    |   O    | Export data ke Excel, import dari Excel       |
 | 8 | Export/Import PDF      |   O    | Export laporan ke PDF (OpenPDF)               |
-| 9 | Webhook               |   O    | Event-driven webhook notifications            |
-|10 | Redis Token Blacklist |   O    | Persistent token blacklist (Redis-backed)     |
-|11 | Spring Actuator       |   O    | Health check, info, metrics endpoints         |
-|12 | QueryDSL Integration  |   O    | Type-safe queries with hybrid Blaze approach  |
-|13 | Notification           |   -    | Email notification saat event tertentu        |
-|14 | Dashboard/Reporting    |   O    | Statistik & hiring trend karyawan             |
+| 9 | Spring Actuator       |   O    | Health check, info, metrics endpoints         |
+|10 | QueryDSL Integration  |   O    | Type-safe queries with hybrid Blaze approach  |
+|11 | Notification           |   -    | Email notification saat event tertentu        |
+|12 | Dashboard/Reporting    |   O    | Statistik & hiring trend karyawan             |

@@ -1,16 +1,18 @@
 package com.spring.review.validation;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
+import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import static com.spring.review.entity.QPositionEntity.positionEntity;
 
 @Component
 public class ExistingPositionValidator implements ConstraintValidator<ExistingPosition, Long> {
 
-    @PersistenceContext
-    private EntityManager em;
+    @Autowired
+    private JPAQueryFactory jpaQueryFactory;
 
     @Override
     public boolean isValid(Long positionId, ConstraintValidatorContext context) {
@@ -18,10 +20,11 @@ public class ExistingPositionValidator implements ConstraintValidator<ExistingPo
             return true;
         }
 
-        Long count = em.createQuery(
-                "SELECT COUNT(p) FROM PositionEntity p WHERE p.id = :id",
-                Long.class
-        ).setParameter("id", positionId).getSingleResult();
+        Long count = jpaQueryFactory
+                .select(positionEntity.count())
+                .from(positionEntity)
+                .where(positionEntity.id.eq(positionId))
+                .fetchOne();
 
         return count > 0;
     }

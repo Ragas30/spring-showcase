@@ -9,6 +9,8 @@ import com.querydsl.core.types.Expression;
 import com.querydsl.core.types.Predicate;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.querydsl.sql.SQLQuery;
+import com.querydsl.sql.SQLQueryFactory;
 import com.spring.review.bean.position.CreatePositionRequest;
 import com.spring.review.bean.position.UpdatePositionRequest;
 import com.spring.review.common.ErrorCode;
@@ -43,6 +45,9 @@ class PositionServiceTest {
     @Mock
     private JPAQueryFactory jpaQueryFactory;
 
+    @Mock
+    private SQLQueryFactory sqlQueryFactory;
+
     @InjectMocks
     private PositionService positionService;
 
@@ -64,11 +69,9 @@ class PositionServiceTest {
     @Test
     @SuppressWarnings("unchecked")
     void createPosition_validRequest_returnsView() {
-        jakarta.persistence.TypedQuery<Long> posSeqQuery = mock(jakarta.persistence.TypedQuery.class);
-        when(em.createQuery("SELECT nextval('pos_code_seq')", Long.class))
-                .thenReturn(posSeqQuery);
-        when(posSeqQuery.getSingleResult())
-                .thenReturn(1L);
+        SQLQuery<Long> seqQuery = mock(SQLQuery.class);
+        when(sqlQueryFactory.select(any(Expression.class))).thenReturn(seqQuery);
+        when(seqQuery.fetchOne()).thenReturn(1L);
 
         JPAQuery<Long> countQuery = mock(JPAQuery.class);
         when(jpaQueryFactory.<Long>select(any(Expression.class))).thenReturn(countQuery);

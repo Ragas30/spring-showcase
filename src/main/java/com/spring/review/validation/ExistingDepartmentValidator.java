@@ -1,17 +1,18 @@
 package com.spring.review.validation;
 
-import com.spring.review.entity.DepartmentEntity;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
+import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import static com.spring.review.entity.QDepartmentEntity.departmentEntity;
 
 @Component
 public class ExistingDepartmentValidator implements ConstraintValidator<ExistingDepartment, Long> {
 
-    @PersistenceContext
-    private EntityManager em;
+    @Autowired
+    private JPAQueryFactory jpaQueryFactory;
 
     @Override
     public boolean isValid(Long departmentId, ConstraintValidatorContext context) {
@@ -19,10 +20,11 @@ public class ExistingDepartmentValidator implements ConstraintValidator<Existing
             return true;
         }
 
-        Long count = em.createQuery(
-                "SELECT COUNT(d) FROM DepartmentEntity d WHERE d.id = :id",
-                Long.class
-        ).setParameter("id", departmentId).getSingleResult();
+        Long count = jpaQueryFactory
+                .select(departmentEntity.count())
+                .from(departmentEntity)
+                .where(departmentEntity.id.eq(departmentId))
+                .fetchOne();
 
         return count > 0;
     }

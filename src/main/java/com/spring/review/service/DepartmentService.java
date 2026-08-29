@@ -6,6 +6,7 @@ import com.blazebit.persistence.view.EntityViewSetting;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.querydsl.sql.SQLQueryFactory;
 import com.spring.review.bean.department.CreateDepartmentRequest;
 import com.spring.review.bean.department.DepartmentSearchRequest;
 import com.spring.review.bean.department.UpdateDepartmentRequest;
@@ -38,6 +39,8 @@ public class DepartmentService {
 
     private final JPAQueryFactory jpaQueryFactory;
 
+    private final SQLQueryFactory sqlQueryFactory;
+
     private boolean existsByName(String name) {
         Long count = jpaQueryFactory
                 .select(departmentEntity.count())
@@ -58,9 +61,12 @@ public class DepartmentService {
     }
 
     private String generateDepartmentCode() {
-        Long seq = em.createQuery(
-                "SELECT nextval('dept_code_seq')", Long.class
-        ).getSingleResult();
+        Long seq = sqlQueryFactory
+                .select(Expressions.numberTemplate(
+                        Long.class,
+                        "nextval('dept_code_seq')"
+                ))
+                .fetchOne();
         return String.format("DEPT%03d", seq);
     }
 

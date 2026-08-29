@@ -1,25 +1,18 @@
 package com.spring.review.validation;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
+import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import static com.spring.review.entity.QEmployeeEntity.employeeEntity;
+
 @Component
-@RequiredArgsConstructor
 public class UniqueEmailValidator implements ConstraintValidator<UniqueEmail, String> {
 
-    @PersistenceContext
-    private final EntityManager em;
-
-    private String entityType;
-
-    @Override
-    public void initialize(UniqueEmail constraintAnnotation) {
-        this.entityType = constraintAnnotation.entityClass().getSimpleName();
-    }
+    @Autowired
+    private JPAQueryFactory jpaQueryFactory;
 
     @Override
     public boolean isValid(String email, ConstraintValidatorContext context) {
@@ -27,10 +20,11 @@ public class UniqueEmailValidator implements ConstraintValidator<UniqueEmail, St
             return true;
         }
 
-        Long count = em.createQuery(
-                "SELECT COUNT(e) FROM " + entityType + " e WHERE e.email = :email",
-                Long.class
-        ).setParameter("email", email).getSingleResult();
+        Long count = jpaQueryFactory
+                .select(employeeEntity.count())
+                .from(employeeEntity)
+                .where(employeeEntity.email.eq(email))
+                .fetchOne();
 
         return count == 0;
     }

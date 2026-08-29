@@ -3,6 +3,9 @@ package com.spring.review.service;
 import com.blazebit.persistence.CriteriaBuilderFactory;
 import com.blazebit.persistence.view.EntityViewManager;
 import com.blazebit.persistence.view.EntityViewSetting;
+import com.querydsl.core.types.dsl.Expressions;
+import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.querydsl.sql.SQLQueryFactory;
 import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
 import com.lowagie.text.Font;
@@ -39,6 +42,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.spring.review.entity.QDepartmentEntity.departmentEntity;
+import static com.spring.review.entity.QPositionEntity.positionEntity;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -50,6 +56,10 @@ public class ExportImportService {
     private final CriteriaBuilderFactory cbf;
 
     private final EntityViewManager evm;
+
+    private final JPAQueryFactory jpaQueryFactory;
+
+    private final SQLQueryFactory sqlQueryFactory;
 
     private static final String[] EXCEL_HEADERS = {
             "No",
@@ -117,10 +127,12 @@ public class ExportImportService {
 
     private String generateEmployeeCode() {
 
-        Long seq = em.createQuery(
-                "SELECT nextval('emp_code_seq')",
-                Long.class
-        ).getSingleResult();
+        Long seq = sqlQueryFactory
+                .select(Expressions.numberTemplate(
+                        Long.class,
+                        "nextval('emp_code_seq')"
+                ))
+                .fetchOne();
 
         return String.format(
                 "EMP%04d",
@@ -335,25 +347,18 @@ public class ExportImportService {
                     if (departmentName != null
                             && !departmentName.isBlank()) {
 
-                        Long deptCount = cbf.create(
-                                        em,
-                                        Long.class
-                                )
-                                .from(DepartmentEntity.class)
-                                .select("COUNT(id)")
-                                .where("name")
-                                .eq(departmentName)
-                                .getSingleResult();
+                        Long deptCount = jpaQueryFactory
+                                .select(departmentEntity.count())
+                                .from(departmentEntity)
+                                .where(departmentEntity.name.eq(departmentName))
+                                .fetchOne();
 
                         if (deptCount > 0) {
 
-                            department = cbf.create(
-                                            em,
-                                            DepartmentEntity.class
-                                    )
-                                    .where("name")
-                                    .eq(departmentName)
-                                    .getSingleResult();
+                            department = jpaQueryFactory
+                                    .selectFrom(departmentEntity)
+                                    .where(departmentEntity.name.eq(departmentName))
+                                    .fetchOne();
                         }
                     }
 
@@ -362,25 +367,18 @@ public class ExportImportService {
                     if (positionName != null
                             && !positionName.isBlank()) {
 
-                        Long posCount = cbf.create(
-                                        em,
-                                        Long.class
-                                )
-                                .from(PositionEntity.class)
-                                .select("COUNT(id)")
-                                .where("name")
-                                .eq(positionName)
-                                .getSingleResult();
+                        Long posCount = jpaQueryFactory
+                                .select(positionEntity.count())
+                                .from(positionEntity)
+                                .where(positionEntity.name.eq(positionName))
+                                .fetchOne();
 
                         if (posCount > 0) {
 
-                            position = cbf.create(
-                                            em,
-                                            PositionEntity.class
-                                    )
-                                    .where("name")
-                                    .eq(positionName)
-                                    .getSingleResult();
+                            position = jpaQueryFactory
+                                    .selectFrom(positionEntity)
+                                    .where(positionEntity.name.eq(positionName))
+                                    .fetchOne();
                         }
                     }
 

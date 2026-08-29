@@ -3,7 +3,6 @@ package com.spring.review.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.spring.review.service.AuditLogService;
-import com.spring.review.service.WebhookDeliveryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -15,7 +14,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
-import java.util.Map;
 
 @Aspect
 @Component
@@ -24,8 +22,6 @@ import java.util.Map;
 public class AuditAspect {
 
     private final AuditLogService auditLogService;
-
-    private final WebhookDeliveryService webhookDeliveryService;
 
     private final ObjectMapper objectMapper =
             new ObjectMapper()
@@ -69,8 +65,6 @@ public class AuditAspect {
                         newValues,
                         performedBy
                 );
-
-                triggerWebhook(entityType, action, entityId, newValues);
             }
         } catch (Exception e) {
             log.error(
@@ -80,32 +74,6 @@ public class AuditAspect {
         }
 
         return result;
-    }
-
-    private void triggerWebhook(
-            String entityType,
-            String action,
-            Long entityId,
-            String newValues
-    ) {
-        try {
-            String eventName = entityType.toLowerCase() + "." + action.toLowerCase();
-
-            Map<String, Object> payload = Map.of(
-                    "entityType", entityType,
-                    "entityId", entityId,
-                    "action", action,
-                    "newValues", newValues != null ? newValues : "",
-                    "timestamp", java.time.Instant.now().toString()
-            );
-
-            webhookDeliveryService.deliverEvent(eventName, payload);
-        } catch (Exception e) {
-            log.error(
-                    "Failed to trigger webhook: {}",
-                    e.getMessage()
-            );
-        }
     }
 
     private String getCurrentUser() {

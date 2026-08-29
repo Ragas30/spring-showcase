@@ -20,7 +20,6 @@ REST API backend untuk manajemen karyawan, departemen, dan posisi. Menggunakan J
 | Export PDF | OpenPDF 2.0.3 |
 | Build Tool | Maven |
 | Code Gen | Lombok 1.18.38 |
-| Redis | Spring Data Redis |
 | Monitoring | Spring Actuator |
 
 ## Features
@@ -39,8 +38,6 @@ REST API backend untuk manajemen karyawan, departemen, dan posisi. Menggunakan J
 - Dashboard statistics & hiring trend
 - Concurrency-safe code generation (DB sequences)
 - Swagger/OpenAPI documentation
-- Webhook Integration (event-driven, HMAC-SHA256 signed)
-- Redis Token Blacklist (persistent across restarts)
 - Spring Actuator (health check, metrics)
 - QueryDSL Integration (type-safe queries, hybrid Blaze approach)
 
@@ -49,7 +46,6 @@ REST API backend untuk manajemen karyawan, departemen, dan posisi. Menggunakan J
 1. Java 21+
 2. Maven 3.8+
 3. PostgreSQL 15+
-4. Redis 7+ (untuk token blacklist)
 
 ```sql
 CREATE DATABASE karyawan;
@@ -60,9 +56,6 @@ CREATE DATABASE karyawan;
 ```bash
 # Clone
 git clone <repo-url>
-
-# Start Redis (required for token blacklist)
-docker run -d -p 6379:6379 redis:7-alpine
 
 # Start PostgreSQL
 docker run -d -p 5432:5432 -e POSTGRES_DB=karyawan -e POSTGRES_PASSWORD=12345678 postgres:17
@@ -139,15 +132,6 @@ Swagger UI: `http://localhost:8080/swagger-ui.html`
 
 - GET /api/audit-logs
 
-### Webhook (Admin only)
-
-- POST /api/webhooks
-- GET /api/webhooks
-- GET /api/webhooks/{id}
-- PUT /api/webhooks/{id}
-- DELETE /api/webhooks/{id}
-- GET /api/webhooks/logs
-
 ### Monitoring
 
 - GET /actuator/health
@@ -159,14 +143,11 @@ Swagger UI: `http://localhost:8080/swagger-ui.html`
 ```
 src/main/java/com/spring/review/
 ├── bean/           # Request/Response DTOs
-├── bean/webhook/         # Webhook DTOs
 ├── common/         # ApiResponse, ErrorCode, PageResponse, PageSpec
 ├── config/         # Security, Blaze, Flyway, Audit AOP
 ├── controller/     # REST Controllers
 ├── entity/         # JPA Entities
-├── entity/Webhook*.java  # Webhook entities
 ├── entityView/     # Blaze Entity Views
-├── entityView/Webhook*.java  # Webhook views
 ├── exception/      # Exception Handling
 ├── service/        # Business Logic
 └── validation/     # Custom Validators

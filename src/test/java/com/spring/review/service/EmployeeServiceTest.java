@@ -9,6 +9,8 @@ import com.querydsl.core.types.Expression;
 import com.querydsl.core.types.Predicate;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.querydsl.sql.SQLQuery;
+import com.querydsl.sql.SQLQueryFactory;
 import com.spring.review.bean.employee.CreateEmployeeRequest;
 import com.spring.review.bean.employee.EmployeeSearchRequest;
 import com.spring.review.bean.employee.UpdateEmployeeRequest;
@@ -48,6 +50,9 @@ class EmployeeServiceTest {
     @Mock
     private JPAQueryFactory jpaQueryFactory;
 
+    @Mock
+    private SQLQueryFactory sqlQueryFactory;
+
     @InjectMocks
     private EmployeeService employeeService;
 
@@ -81,11 +86,9 @@ class EmployeeServiceTest {
 
     @Test
     void createEmployee_validRequest_returnsView() {
-        jakarta.persistence.TypedQuery<Long> empSeqQuery = mock(jakarta.persistence.TypedQuery.class);
-        when(em.createQuery("SELECT nextval('emp_code_seq')", Long.class))
-                .thenReturn(empSeqQuery);
-        when(empSeqQuery.getSingleResult())
-                .thenReturn(1L);
+        SQLQuery<Long> seqQuery = mock(SQLQuery.class);
+        when(sqlQueryFactory.select(any(Expression.class))).thenReturn(seqQuery);
+        when(seqQuery.fetchOne()).thenReturn(1L);
 
         DepartmentEntity dept = new DepartmentEntity();
         when(em.find(DepartmentEntity.class, 1L)).thenReturn(dept);

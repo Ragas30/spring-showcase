@@ -1,17 +1,18 @@
 package com.spring.review.validation;
 
-import com.spring.review.entity.EmployeeEntity;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
+import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import static com.spring.review.entity.QEmployeeEntity.employeeEntity;
 
 @Component
 public class ExistingManagerValidator implements ConstraintValidator<ExistingManager, Long> {
 
-    @PersistenceContext
-    private EntityManager em;
+    @Autowired
+    private JPAQueryFactory jpaQueryFactory;
 
     @Override
     public boolean isValid(Long managerId, ConstraintValidatorContext context) {
@@ -19,10 +20,11 @@ public class ExistingManagerValidator implements ConstraintValidator<ExistingMan
             return true;
         }
 
-        Long count = em.createQuery(
-                "SELECT COUNT(e) FROM EmployeeEntity e WHERE e.id = :id",
-                Long.class
-        ).setParameter("id", managerId).getSingleResult();
+        Long count = jpaQueryFactory
+                .select(employeeEntity.count())
+                .from(employeeEntity)
+                .where(employeeEntity.id.eq(managerId))
+                .fetchOne();
 
         return count > 0;
     }

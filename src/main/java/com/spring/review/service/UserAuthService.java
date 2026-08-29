@@ -30,8 +30,6 @@ public class UserAuthService {
 
     private final JwtService jwtService;
 
-    private final TokenBlacklistService tokenBlacklistService;
-
     public LoginResponse login(
             LoginRequest request
     ) {
@@ -240,7 +238,7 @@ public class UserAuthService {
 
     @Transactional
     public void logout(String token) {
-        tokenBlacklistService.blacklist(token);
+        // No-op: token blacklist tidak digunakan
     }
 
     @Transactional

@@ -26,8 +26,6 @@ public class JwtAuthenticationFilter
 
     private final UserAuthService userAuthService;
 
-    private final TokenBlacklistService tokenBlacklistService;
-
     @Override
     protected void doFilterInternal(
             @NonNull HttpServletRequest request,
@@ -70,7 +68,6 @@ public class JwtAuthenticationFilter
         }
 
         if (username != null
-                && !tokenBlacklistService.isBlacklisted(token)
                 && jwtService.isTokenValid(
                 token,
                 username

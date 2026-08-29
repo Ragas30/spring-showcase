@@ -9,6 +9,8 @@ import com.querydsl.core.types.Expression;
 import com.querydsl.core.types.Predicate;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.querydsl.sql.SQLQuery;
+import com.querydsl.sql.SQLQueryFactory;
 import com.spring.review.bean.department.CreateDepartmentRequest;
 import com.spring.review.bean.department.DepartmentSearchRequest;
 import com.spring.review.bean.department.UpdateDepartmentRequest;
@@ -46,6 +48,9 @@ class DepartmentServiceTest {
     @Mock
     private JPAQueryFactory jpaQueryFactory;
 
+    @Mock
+    private SQLQueryFactory sqlQueryFactory;
+
     @InjectMocks
     private DepartmentService departmentService;
 
@@ -66,11 +71,9 @@ class DepartmentServiceTest {
     @Test
     @SuppressWarnings("unchecked")
     void createDepartment_validRequest_returnsView() {
-        jakarta.persistence.TypedQuery<Long> deptSeqQuery = mock(jakarta.persistence.TypedQuery.class);
-        when(em.createQuery("SELECT nextval('dept_code_seq')", Long.class))
-                .thenReturn(deptSeqQuery);
-        when(deptSeqQuery.getSingleResult())
-                .thenReturn(1L);
+        SQLQuery<Long> seqQuery = mock(SQLQuery.class);
+        when(sqlQueryFactory.select(any(Expression.class))).thenReturn(seqQuery);
+        when(seqQuery.fetchOne()).thenReturn(1L);
 
         JPAQuery<Long> countQuery = mock(JPAQuery.class);
         when(jpaQueryFactory.<Long>select(any(Expression.class))).thenReturn(countQuery);

@@ -631,7 +631,6 @@ Menggunakan Mockito:
 ```text
 JwtServiceTest
 GlobalExceptionHandlerTest
-TokenBlacklistServiceTest
 ```
 
 ## Jangan Gunakan
@@ -921,7 +920,6 @@ Fitur:
 * 16 tests passing
 * JwtServiceTest
 * GlobalExceptionHandlerTest
-* TokenBlacklistServiceTest
 
 ---
 
@@ -940,6 +938,6 @@ Fitur:
 * BooleanExpression with Expressions.TRUE
 * JPAQueryFactory for count/ID queries
 * Hybrid: QueryDSL + Blaze Entity Views
-* Refactored: EmployeeService, DepartmentService, PositionService, WebhookService, AuditLogService
+* Refactored: EmployeeService, DepartmentService, PositionService, AuditLogService
 
 ---

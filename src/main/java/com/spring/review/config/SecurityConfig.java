@@ -132,8 +132,7 @@ public class SecurityConfig {
                         .hasRole("ADMIN")
 
                         .requestMatchers(
-                                "/api/audit-logs/**",
-                                "/api/webhooks/**"
+                                "/api/audit-logs/**"
                         )
                         .hasRole("ADMIN")
 

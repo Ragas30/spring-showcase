@@ -139,32 +139,11 @@ Disable contextLoads test yang menggunakan full Spring context. Gunakan unit tes
 
 ---
 
-## 8. Redis Connection Refused
+## 8. Async Configuration Missing
 
 **Error:**
 ```
-Unable to connect to localhost:6379
-org.springframework.data.redis.RedisConnectionFailureException: Unable to connect to Redis
-```
-
-**Penyebab:**
-Redis belum dijalankan atau belum terinstall. Token blacklist sekarang menggunakan Redis sebagai backend.
-
-**Solusi:**
-Jalankan Redis terlebih dahulu:
-- Docker: `docker run -d -p 6379:6379 redis:7-alpine`
-- Atau install Redis secara lokal dan jalankan `redis-server`
-- Pastikan Redis berjalan di `localhost:6379` (default)
-
-**Tanggal:** 2026-08-20
-
----
-
-## 9. Async Configuration Missing
-
-**Error:**
-```
-Async method 'deliverEvent' cannot be invoked because target bean 'webhookDeliveryService' of type 'com.spring.review.service.WebhookDeliveryService' is not a JDK/JDK proxy
+Async method cannot be invoked because target bean is not a JDK/JDK proxy
 ```
 
 **Penyebab:**
@@ -177,7 +156,7 @@ Tambahkan `@EnableAsync` di class `ReviewApplication`. Juga tambahkan `@EnableSc
 
 ---
 
-## 10. QueryDSL Predicate and() method not found
+## 9. QueryDSL Predicate and() method not found
 
 **Error:**
 ```

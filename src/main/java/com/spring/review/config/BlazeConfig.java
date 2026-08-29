@@ -7,18 +7,21 @@ import com.blazebit.persistence.view.EntityViewManager;
 import com.blazebit.persistence.view.EntityViews;
 import com.blazebit.persistence.view.spi.EntityViewConfiguration;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.querydsl.sql.PostgreSQLTemplates;
+import com.querydsl.sql.SQLQueryFactory;
 import com.spring.review.entityView.AuthUserView;
 import com.spring.review.entityView.AuditLogView;
 import com.spring.review.entityView.DepartmentView;
 import com.spring.review.entityView.EmployeeView;
 import com.spring.review.entityView.PositionView;
 import com.spring.review.entityView.UserView;
-import com.spring.review.entityView.WebhookLogView;
-import com.spring.review.entityView.WebhookSubscriptionView;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.datasource.DataSourceUtils;
+
+import javax.sql.DataSource;
 
 @Configuration
 public class BlazeConfig {
@@ -50,8 +53,6 @@ public class BlazeConfig {
         config.addEntityView(DepartmentView.class);
         config.addEntityView(PositionView.class);
         config.addEntityView(AuditLogView.class);
-        config.addEntityView(WebhookSubscriptionView.class);
-        config.addEntityView(WebhookLogView.class);
 
         return config.createEntityViewManager(cbf);
     }
@@ -61,5 +62,20 @@ public class BlazeConfig {
             EntityManager entityManager
     ) {
         return new JPAQueryFactory(entityManager);
+    }
+
+    @Bean
+    public SQLQueryFactory sqlQueryFactory(
+            DataSource dataSource
+    ) {
+        com.querydsl.sql.Configuration configuration =
+                new com.querydsl.sql.Configuration(
+                        PostgreSQLTemplates.DEFAULT
+                );
+
+        return new SQLQueryFactory(
+                configuration,
+                () -> DataSourceUtils.getConnection(dataSource)
+        );
     }
 }

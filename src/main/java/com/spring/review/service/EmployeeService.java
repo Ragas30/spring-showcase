@@ -6,6 +6,7 @@ import com.blazebit.persistence.view.EntityViewSetting;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.querydsl.sql.SQLQueryFactory;
 import com.spring.review.bean.employee.CreateEmployeeRequest;
 import com.spring.review.bean.employee.EmployeeSearchRequest;
 import com.spring.review.bean.employee.UpdateEmployeeRequest;
@@ -38,6 +39,8 @@ public class EmployeeService {
 
     private final JPAQueryFactory jpaQueryFactory;
 
+    private final SQLQueryFactory sqlQueryFactory;
+
     private boolean existsByEmail(String email) {
         Long count = jpaQueryFactory
                 .select(employeeEntity.count())
@@ -58,9 +61,12 @@ public class EmployeeService {
     }
 
     private String generateEmployeeCode() {
-        Long seq = em.createQuery(
-                "SELECT nextval('emp_code_seq')", Long.class
-        ).getSingleResult();
+        Long seq = sqlQueryFactory
+                .select(Expressions.numberTemplate(
+                        Long.class,
+                        "nextval('emp_code_seq')"
+                ))
+                .fetchOne();
         return String.format("EMP%04d", seq);
     }
 

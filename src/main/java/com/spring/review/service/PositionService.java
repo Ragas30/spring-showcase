@@ -6,6 +6,7 @@ import com.blazebit.persistence.view.EntityViewSetting;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.querydsl.sql.SQLQueryFactory;
 import com.spring.review.bean.position.CreatePositionRequest;
 import com.spring.review.bean.position.PositionSearchRequest;
 import com.spring.review.bean.position.UpdatePositionRequest;
@@ -39,6 +40,8 @@ public class PositionService {
 
     private final JPAQueryFactory jpaQueryFactory;
 
+    private final SQLQueryFactory sqlQueryFactory;
+
     private boolean existsByName(String name) {
         Long count = jpaQueryFactory
                 .select(positionEntity.count())
@@ -59,9 +62,12 @@ public class PositionService {
     }
 
     private String generatePositionCode() {
-        Long seq = em.createQuery(
-                "SELECT nextval('pos_code_seq')", Long.class
-        ).getSingleResult();
+        Long seq = sqlQueryFactory
+                .select(Expressions.numberTemplate(
+                        Long.class,
+                        "nextval('pos_code_seq')"
+                ))
+                .fetchOne();
         return String.format("POS%03d", seq);
     }
 
